@@ -1,0 +1,75 @@
+memory:
+
+XCAP-Lite 64 MB
+XCAP-Ltd, 4 GB under 32-bit, 8 GB under 64-bit
+XCAP-Std, 4 GB under 32-bit, 16 GB under 64-bit
+XCAP-Viewer
+
+XCLIB, "Forceful Allocation" technique allows reserving almost
+all the computer memor(up to 4 GB on 32bit machines( for image frame buffers
+
+host memory allocated for image frame buffers
+
+frame buffer allocated on boot, stays until reboot
+
+#xcap is setting the number of frames based on image size
+#in the video file format
+
+#31 images at 32 MB (32768 kB actually)
+#3856 images (1024x1024) with memory at 4194 MB (4**22)
+
+#try 8388608
+#failed with memory read errors
+
+#Windows 7 64 bit only allocates 6 GB or 1/2 of the total memory-- whichever is smaller
+Tried 6GB, still have 
+WindowsError: exception: access violation reading ...
+2045 images collected before errors
+
+#set back to 4194 MB
+#4094 images (1024x1024) (repeated twice, restarted software, then repeated again)
+
+msconfig.exe
+advanced
+maximum memory = 65536 = 64 gb
+change to 4
+only got 249 images
+Installed RAM says 64 GB, 2.71 GB usable
+
+BCDEdit, made a new boot loader entry with truncated memory, then choose to boot from this
+-IA 4194304 -IM 62914560 -MB 0
+
+60355 images (1024x1024) when set up with:
+
+
+regedit:
+Edit the registry for the epix frame grabber through the regedit software that you can access by typing regedit in the start menu.
+*navigate to HKEY_LOCAL_MACHINE -> SYSTEM -> CurrentControlSet -> services -> EPIXXCW64
+Edit -> New -> String Value with name PIXCI and value:
+-IA 4194304 -IM 61865984 -MB 1048576 -BH 1048576 -MU 0x01 -MU 0x03
+where -IA is for the number of KB for the OS (4 GB), -IM is the number KB for EPIXX (59 GB)
+DONT go into Enum
+
+bcdedit:
+Tell the computer to isolate some memory from windows to save it for the frame grabber by making a new boot loader and truncating the memory.
+*from the start menu, type "cmd", then right click on the cmd program to start it as an administrator
+bcdedit /enum
+bcdedit /copy {current} /d "Windows7 [PIXCI==59G NT=4G"
+to copy the current boot loader and rename it
+bcdedit /enum /v
+to get the ID of the new entry to use in this line:
+for 4GB of memory (entered in units of bytes):
+bcdedit /set <new_entry_id> truncatememory 1073741824
+1 GB was slow listed as:
+0x40000000
+
+msconfig:
+*General:
+select: selective startup, check load system services, check load stertup items, DONT Use original boot configuration
+*Boot:
+select: the boot loader you created with bcdedit
+select set as default
+click apply
+
+
+

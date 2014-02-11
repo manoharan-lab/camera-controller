@@ -1,0 +1,47 @@
+
+yaml
+
+For all users (at least whenever prompted to choose):
+
+Canopy Python from enthought (free)
+
+PyQt from Riverbank (free)
+
+Firefox (free)
+-set google as homepage
+-set manoharalab wiki as secondary homepage
+
+Chrome (free)
+-set google as homepage
+-set manoharalab wiki as secondary homepage
+
+Photon Focus (free)
+http://www.photonfocus.com/html/eng/support/software.php
+Main Installer Win x64 (including PFRemote)
+    comes with Microsoft Visual C++ 2005 Redistributable (x64)
+
+Epix (free)
+XCAP v.3.8
+Camera Link DLL
+Chose camera link 1.1 API (approx. 0.42 MByte) when installing DLL
+Works with 8-bit x2 capture, 12-bit x2  too, just have to change it in PFRemote as well.
+
+Epix (not free)
+XCLIB V3.8 windows64
+SDK and DLL using code: VTON/XRJF/GSIN
+program files / epix / xclib / xclibW64.dll
+
+Get to DLL from python?
+Get one of the examples working?
+
+PFRemote has a DLL too
+
+type regedit in search menu
+navigate to HKey_Local_Machine
+SYSTEM
+CurrentControlSet
+services
+EPIXXCW6 (stop here, don't go into enum)
+
+Edit-> New-> String Value
+Name PIXCI, type REG_SZ, Data -IM 4194304
