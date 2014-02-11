@@ -1,0 +1,609 @@
+
+/*
+ * Structure:	pxvidformat
+ * Copyright:	(C) EPIX, Inc. 2000-2008
+ * Created:	Fri Feb 05 18:07:01 2010
+ * By:		EPIX(r)  XCAP V3.0
+ */
+struct pxvidformat pxvidformat_561_id31232 =
+{
+    1988,                                                   /* ddch.len       */
+    561,                                                    /* ddch.mos       */
+    0,                                                      /* ddch.id        */
+    0,                                                      /* ddch.op        */
+    0,                                                      /* ddch.un        */
+    0,                                                      /* ddch.rw        */
+    0,                                                      /* ddch.fu        */
+    0,                                                      /* ddch.rs        */
+    30819,                                                  /* fgfamily       */
+    23,                                                     /* fgmodel        */
+    65288,                                                  /* fgsubmodel     */
+    0,                                                      /* fgcustomid     */
+    0,      0,      0,                                      /* fgdefdate      */
+    0,      0,      0,      0,      0,      0,      0,      0,      
+    0,      0,      0,      0,      0,      0,      0,      0,      
+    0,      0,      0,      0,      0,      0,      0,      0,      
+    0,      0,      0,      0,      0,      0,      0,      0,      
+    0,      0,      0,      0,      0,      0,      0,      0,      
+    0,      0,      0,      0,      0,      0,      0,      0,      
+    0,      0,      0,      0,      0,      0,      0,      0,      
+    0,      0,      0,      0,      0,      0,      0,      0,      
+    0,      0,      0,      0,      0,      0,      0,      0,      
+    0,      0,      0,      0,      0,      0,      0,      0,       /* fgcamera */
+    0,                                                      /* fgsignature    */
+    0,      0,      0,      1,                              /* fgcamdope      */
+    4,      256,    0,      2,                              /* xviddim        */
+    4,      256,    0,      2,                              /* xdatdim        */
+    1,      256,    0,      0,                              /* yviddim        */
+    1,      256,    0,      0,                              /* ydatdim        */
+    0,      1024,   0,      0,                              /* xvidoffset     */
+    0,      1024,   0,      0,                              /* yvidoffset     */
+    0,      0,      0,      0,                              /* xvidoffdim     */
+    0,      0,      0,      0,                              /* yvidoffdim     */
+    1,      1,      0,      0,                              /* datfields      */
+    1,      1,      0,      0,                              /* datchannels    */
+    1,      1,      0,      0,                              /* datphylds      */
+    0,      0,      0,      0,                              /* rsvd2          */
+    1,      1,      1,      0,                              /* vidylaces      */
+    1,      1,      1,      0,                              /* vidchannels    */
+    0,      0,      0,      0,      0,      0,      0,      0,       /* inputmuxs */
+    0,      0,      0,      0,      0,      0,      0,      0,       /* outputmuxs */
+    0,      0,      0,      0,      0,      0,      0,      0,       /* splitscreens */
+    2,      0,      0,      0,      0,      0,      0,      0,       /* syncsources */
+    31232,  25088,  0,      0,      0,      0,      0,      0,       /* videomodes */
+    1,      0,      0,      0,      0,      0,      0,      0,       /* fieldmods */
+    1,      2147483647,     0,      0,                      /* buffers        */
+    1,      1,      1,      0,                              /* vidxlaces      */
+    0,      0,      0,      0,                              /* rsvd3          */
+    0,                                                      /* as.hoffset     */
+    0,                                                      /* as.voffset     */
+    0,                                                      /* as.fieldsperframe */
+    0,                                                      /* as.pixelsperclock */
+    0,                                                      /* as.pixiesperclock */
+    0,                                                      /* as.linesperframe */
+    0,                                                      /* as.pixelsperline */
+    0,      0,                                              /* as.pixelclkfreq */
+    0,      0,                                              /* as.vperiod     */
+    0,      0,                                              /* as.hperiod     */
+    0,      0,                                              /* as.framerate   */
+    0,                                                      /* as.fieldperiodicity */
+    0,                                                      /* as.lineperiodicity */
+    0,                                                      /* as.hscanorder  */
+    0,                                                      /* as.vscanorder  */
+    0,                                                      /* as.framespertrigger */
+    0,                                                      /* as.scanclass   */
+    0,                                                      /* as.phyldsperframe */
+    0,      0,      0,      0,      0,      0,      0,       /* as.rsvd4      */
+    0,                                                      /* is.hoffset     */
+    0,                                                      /* is.voffset     */
+    1,                                                      /* is.fieldsperframe */
+    2,                                                      /* is.pixelsperclock */
+    1,                                                      /* is.pixiesperclock */
+    0,                                                      /* is.linesperframe */
+    0,                                                      /* is.pixelsperline */
+    40000,  1000,                                           /* is.pixelclkfreq */
+    1,      1,                                              /* is.vperiod     */
+    11261,  10000000,                                       /* is.hperiod     */
+    1,      1,                                              /* is.framerate   */
+    1,                                                      /* is.fieldperiodicity */
+    1,                                                      /* is.lineperiodicity */
+    108,                                                    /* is.hscanorder  */
+    116,                                                    /* is.vscanorder  */
+    1,                                                      /* is.framespertrigger */
+    2,                                                      /* is.scanclass   */
+    1,                                                      /* is.phyldsperframe */
+    0,      0,      0,      0,      0,      0,      0,       /* is.rsvd4      */
+    1,      1,                                              /* pixelwidth     */
+    1,      1,                                              /* pixelheight    */
+    0,      0,                                              /* pixeldepth     */
+    114,                                                    /* widthunits     */
+    114,                                                    /* heightunits    */
+    0,                                                      /* depthunits     */
+    1,                                                      /* boardspercamera */
+    0,                                                      /* linesyncupdelay */
+    0,                                                      /* fieldsyncupdelay */
+    0,                                                      /* framesyncupdelay */
+    0,                                                      /* fieldflip      */
+    1000,                                                   /* nosynctimeout  */
+    0,                                                      /* phyldflip      */
+    0,                                                      /* prefixdata     */
+    0,                                                      /* postfixdata    */
+    0,                                                      /* imagesperframe */
+    0x0,                                                    /* camlinkconfig  */
+    0,      0,      0,                                      /* rsvd5          */
+    0,      0,      0,      0,      0,      0,      0,      0,       /* vid.pixhints */
+    0,      0,      0,      0,      0,      0,      0,      0,      
+    0,      0,      0,      0,      0,      0,      0,      0,      
+    0,      0,      0,      0,      0,      0,      0,      0,      
+    0,      0,      0,      0,      0,      0,      0,      0,      
+    0,      0,      0,      0,      0,      0,      0,      0,      
+    0,      0,      0,      0,      0,      0,      0,      0,      
+    0,      0,      0,      0,      0,      0,      0,      0,      
+    0,      0,      0,      0,      0,      0,      0,      0,       /* vid.pixbits */
+    0,      0,      0,      0,      0,      0,      0,      0,       /* vid.pixmems */
+    23160,  17540,  35877,  1003,   37469,  23896,  20196,  58908,   /* vid.pixdopes */
+    1,      0,      0,      0,      0,      0,      0,      0,       /* dat.pixhints */
+    8,      8,      0,      0,      0,      0,      0,      0,      
+    0,      0,      0,      0,      0,      0,      0,      0,      
+    0,      0,      0,      0,      0,      0,      0,      0,      
+    0,      0,      0,      0,      0,      0,      0,      0,      
+    0,      0,      0,      0,      0,      0,      0,      0,      
+    0,      0,      0,      0,      0,      0,      0,      0,      
+    0,      0,      0,      0,      0,      0,      0,      0,      
+    0,      0,      0,      0,      0,      0,      0,      0,       /* dat.pixbits */
+    1,      0,      0,      0,      0,      0,      0,      0,       /* dat.pixmems */
+    18485,  52368,  23203,  20279,  43213,  12672,  48292,  6493,    /* dat.pixdopes */
+    0,      0,      0,      0,      0,      0,      0,      0,       /* img.pixhints */
+    0,      0,      0,      0,      0,      0,      0,      0,      
+    0,      0,      0,      0,      0,      0,      0,      0,      
+    0,      0,      0,      0,      0,      0,      0,      0,      
+    0,      0,      0,      0,      0,      0,      0,      0,      
+    0,      0,      0,      0,      0,      0,      0,      0,      
+    0,      0,      0,      0,      0,      0,      0,      0,      
+    0,      0,      0,      0,      0,      0,      0,      0,      
+    0,      0,      0,      0,      0,      0,      0,      0,       /* img.pixbits */
+    16694,  48175,  8142,   34206,  10710,  45574,  32923,  42495,   /* img.pixmems */
+    40560,  15744,  31574,  8899,   5473,   37017,  35871,  23761,   /* img.pixdopes */
+};
+
+/*
+ * Structure:	pxvidres
+ * Copyright:	(C) EPIX, Inc. 2000-2008
+ * Created:	Fri Feb 05 18:07:01 2010
+ * By:		EPIX(r)  XCAP V3.0
+ */
+struct pxvidres pxvidres_125_id31232 =
+{
+    484,                                                    /* ddch.len       */
+    125,                                                    /* ddch.mos       */
+    0,                                                      /* ddch.id        */
+    0,                                                      /* ddch.op        */
+    0,                                                      /* ddch.un        */
+    0,                                                      /* ddch.rw        */
+    0,                                                      /* ddch.fu        */
+    0,                                                      /* ddch.rs        */
+    256,                                                    /* x.datsamples   */
+    256,                                                    /* x.vidsamples   */
+    0,                                                      /* x.vidoffset    */
+    255,                                                    /* x.vidoffsend   */
+    0,      0,      0,      0,      0,      0,      0,      0,       /* x.rsvd */
+    3,                                                      /* x.setmaxdatsamples */
+    3,                                                      /* x.setmaxvidsamples */
+    1,                                                      /* x.setmidvidoffset */
+    0,                                                      /* x.vs.on        */
+    0,      0,      0,      0,      0,      0,      0,      0,       /* x.vs.parm */
+    0,                                                      /* x.sv.on        */
+    0,                                                      /* x.sv.pos       */
+    0,                                                      /* x.sv.spc       */
+    256,                                                    /* y.datsamples   */
+    256,                                                    /* y.vidsamples   */
+    0,                                                      /* y.vidoffset    */
+    255,                                                    /* y.vidoffsend   */
+    0,      0,      0,      0,      0,      0,      0,      0,       /* y.rsvd */
+    3,                                                      /* y.setmaxdatsamples */
+    3,                                                      /* y.setmaxvidsamples */
+    1,                                                      /* y.setmidvidoffset */
+    0,                                                      /* y.vs.on        */
+    0,      0,      0,      0,      0,      0,      0,      0,       /* y.vs.parm */
+    0,                                                      /* y.sv.on        */
+    0,                                                      /* y.sv.pos       */
+    0,                                                      /* y.sv.spc       */
+    1,                                                      /* datfields      */
+    1,                                                      /* datchannels    */
+    1,                                                      /* setmaxdatfields */
+    1,                                                      /* setmaxdatchannels */
+    1,                                                      /* datphylds      */
+    1,                                                      /* setmaxdatphylds */
+    0,      0,      0,      256,    0,      0,              /* rsvd1          */
+    0,                                                      /* vid.pixies     */
+    0,      0,      0,      0,                              /* vid.pixiebits  */
+    0,                                                      /* vid.pixhint    */
+    0,                                                      /* vid.pixmem     */
+    23160,                                                  /* vid.pixdope    */
+    0,                                                      /* vid.setpixbits */
+    1,                                                      /* dat.pixies     */
+    8,      0,      0,      0,                              /* dat.pixiebits  */
+    1,                                                      /* dat.pixhint    */
+    1,                                                      /* dat.pixmem     */
+    18485,                                                  /* dat.pixdope    */
+    0,                                                      /* dat.setpixbits */
+    1,                                                      /* img.pixies     */
+    8,      0,      0,      0,                              /* img.pixiebits  */
+    1,                                                      /* img.pixhint    */
+    16694,                                                  /* img.pixmem     */
+    40560,                                                  /* img.pixdope    */
+    0,                                                      /* img.setpixbits */
+    256,                                                    /* line.pd        */
+    256,                                                    /* line.pdod      */
+    256,                                                    /* line.pdodal    */
+    256,                                                    /* line.pdodalsf  */
+    0,                                                      /* line.rsvd2     */
+    65536,                                                  /* field.pd       */
+    65544,                                                  /* field.pdod     */
+    65600,                                                  /* field.pdodal   */
+    65600,                                                  /* field.pdodalsf */
+    0,                                                      /* field.rsvd2    */
+    65536,                                                  /* frame.pd       */
+    65544,                                                  /* frame.pdod     */
+    65600,                                                  /* frame.pdodal   */
+    65600,                                                  /* frame.pdodalsf */
+    0,                                                      /* frame.rsvd2    */
+    42944,                                                  /* framebuffers   */
+    0,                                                      /* rsvdbuffers    */
+    0,      0,      0,      0,      0,      0,      0,       /* rsvd3         */
+};
+
+/*
+ * Structure:	pxvidmode
+ * Copyright:	(C) EPIX, Inc. 2000-2008
+ * Created:	Fri Feb 05 18:07:01 2010
+ * By:		EPIX(r)  XCAP V3.0
+ */
+struct pxvidmode pxvidmode_79_id31232 =
+{
+    300,                                                    /* ddch.len       */
+    79,                                                     /* ddch.mos       */
+    0,                                                      /* ddch.id        */
+    0,                                                      /* ddch.op        */
+    0,                                                      /* ddch.un        */
+    0,                                                      /* ddch.rw        */
+    0,                                                      /* ddch.fu        */
+    0,                                                      /* ddch.rs        */
+    1,                                                      /* vidchannels    */
+    1,                                                      /* buffer         */
+    0,                                                      /* panxy.x        */
+    0,                                                      /* panxy.y        */
+    0,                                                      /* useimphys      */
+    0,      0,      0,      0,      0,      0,      0,      0,       /* rsvd2 */
+    31232,  0,      0,      0,                              /* vidmode        */
+    1,      0,      0,      0,                              /* vidylace       */
+    2,      0,      0,      0,                              /* syncsource     */
+    0,      0,      0,      0,                              /* vidopt         */
+    0,      0,      0,      0,                              /* inputmux       */
+    0,      0,      0,      0,                              /* outputmux      */
+    0,      0,      0,      0,                              /* splitscreen    */
+    1,      0,      0,      0,                              /* fieldmod       */
+    1,      0,      0,      0,                              /* vidxlace       */
+    0,      0,      0,      0,      0,      0,      0,      0,      
+    0,      0,      0,      0,                              /* rsvd1          */
+    1,                                                      /* setmaxvidylace */
+    1,                                                      /* setmaxvidchannels */
+    1,                                                      /* setmaxvidxlace */
+    0,      0,      0,      0,      0,      0,      0,       /* rsvd3         */
+};
+
+/*
+ * Structure:	pxvidphys
+ * Copyright:	(C) EPIX, Inc. 2000-2008
+ * Created:	Fri Feb 05 18:07:01 2010
+ * By:		EPIX(r)  XCAP V3.0
+ */
+struct pxvidphys pxvidphys_118_id31232 =
+{
+    656,                                                    /* ddch.len       */
+    118,                                                    /* ddch.mos       */
+    0,                                                      /* ddch.id        */
+    0,                                                      /* ddch.op        */
+    0,                                                      /* ddch.un        */
+    0,                                                      /* ddch.rw        */
+    0,                                                      /* ddch.fu        */
+    0,                                                      /* ddch.rs        */
+    31797306,       31797513,       31797513,       31797513,       568218057259168354,     31797513,       31797513,       31797306,       
+    31797306,       31797513,       31799100,       31797858,       31797513,       31797306,       568221561952481890,     31797858,       
+    31798548,       31798755,       31797513,       31797858,       31798755,       31797513,       31797513,       31797513,        /* startadrs */
+    31797858,       31797513,       31797513,       31797513,       31797513,       31797858,       31797858,       31797513,       
+    31797513,       31797513,       31797513,       31797858,       31797513,       31798548,       31797858,       31797513,       
+    31797513,       31797858,       31799100,       31797513,       31797306,       31797513,       31797858,       31797513,        /* endadrs */
+    31797306,       0,      31797858,       2047,   31797513,       0,      31797513,       0,      
+    31797858,       0,      31797858,       0,      31797582,       0,      31797306,       0,      
+    31797858,       42,     31797513,       142,    31797306,       0,      31797513,       0,       /* linelength */
+    31797858,       0,      31797582,       2047,   31797513,       0,      31797858,       4294967295,     
+    31797858,       0,      31797582,       0,      31797582,       0,      31797513,       0,      
+    31797858,       42,     31797582,       896,    31797513,       0,      31797858,       2047,    /* linestride */
+    8791829852770,                                          /* bufadrs        */
+    31797858,                                               /* bufsize        */
+    31797858,                                               /* bufxdim        */
+    0,                                                      /* bufydim        */
+    31797582,                                               /* bufidim        */
+    0,                                                      /* bufzdim        */
+    31797513,                                               /* upatita        */
+    0,                                                      /* bufjdim        */
+    0,      0,      0,                                      /* rsvd           */
+    842,                                                    /* buffer         */
+    31797582,                                               /* stateid        */
+    896,                                                    /* tracker        */
+};
+
+/*
+ * Structure:	pxvidimage
+ * Copyright:	(C) EPIX, Inc. 2000-2008
+ * Created:	Fri Feb 05 18:07:01 2010
+ * By:		EPIX(r)  XCAP V3.0
+ */
+struct pxvidimage pxvidimage_251_id31232 =
+{
+    996,                                                    /* ddch.len       */
+    251,                                                    /* ddch.mos       */
+    0,                                                      /* ddch.id        */
+    0,                                                      /* ddch.op        */
+    0,                                                      /* ddch.un        */
+    0,                                                      /* ddch.rw        */
+    0,                                                      /* ddch.fu        */
+    0,                                                      /* ddch.rs        */
+    0,                                                      /* mt.order       */
+    0,                                                      /* mt.mode        */
+    0,      0,      0,      0,                              /* mt.arg         */
+    0,                                                      /* bp.order       */
+    13,                                                     /* bp.mode        */
+    27,     0,      0,      0,                              /* bp.arg         */
+    1,                                                      /* cs.order       */
+    0,                                                      /* cs.mode        */
+    0,      0,      0,      0,      0,      0,      0,      0,      
+    0,      0,      0,      0,                              /* cs.intorgb     */
+    0,      0,      0,      0,      0,      0,      0,      0,      
+    0,      0,      0,      0,                              /* cs.fromrgb     */
+    0,                                                      /* cs.scale       */
+    0,                                                      /* wb.order       */
+    0,                                                      /* wb.mode        */
+    0,      0,      0,      0,      0,      0,      0,      0,      
+    0,      0,      0,      0,      0,      0,      0,      0,      
+    0,      0,      0,      0,      0,      0,      0,      0,       /* wb.darkreference */
+    0,      0,      0,      0,      0,      0,      0,      0,      
+    0,      0,      0,      0,      0,      0,      0,      0,      
+    0,      0,      0,      0,      0,      0,      0,      0,       /* wb.darktarget */
+    0,      0,      0,      0,      0,      0,      0,      0,      
+    0,      0,      0,      0,      0,      0,      0,      0,      
+    0,      0,      0,      0,      0,      0,      0,      0,       /* wb.brightreference */
+    0,      0,      0,      0,      0,      0,      0,      0,      
+    0,      0,      0,      0,      0,      0,      0,      0,      
+    0,      0,      0,      0,      0,      0,      0,      0,       /* wb.brighttarget */
+    0,      0,      0,      0,      0,      0,      0,      0,      
+    0,      0,      0,      0,      0,      0,      0,      0,      
+    0,      0,      0,      0,      0,      0,      0,      0,       /* wb.gamma */
+    0,                                                      /* pc.order       */
+    0,                                                      /* pc.mode        */
+    0,      0,      0,      0,                              /* pc.arg         */
+    0,                                                      /* sc.order       */
+    0,                                                      /* sc.mode        */
+    0,      0,      0,      0,                              /* sc.arg         */
+    0,                                                      /* rz.order       */
+    0,                                                      /* rz.mode        */
+    0,                                                      /* rz.xdim        */
+    0,                                                      /* rz.ydim        */
+    0,      0,                                              /* rz.arg         */
+    0,                                                      /* go.order       */
+    0,                                                      /* go.mode        */
+    0,      0,                                              /* go.offsbuffer  */
+    0,      0,                                              /* go.gainbuffer  */
+    0,      0,      0,      0,      0,      0,              /* go.arg         */
+    0,      0,                                              /* go.dfctbuffer  */
+    0,                                                      /* no.order       */
+    0,                                                      /* no.mode        */
+    0,      0,      0,      0,      0,      0,      0,      0,       /* no.black */
+    0,      0,      0,      0,      0,      0,      0,      0,       /* no.coef1 */
+    0,      0,      0,      0,      0,      0,      0,      0,       /* no.coef2 */
+    0,                                                      /* no.scale       */
+    0,      0,      0,                                      /* no.arg         */
+    0,                                                      /* sh.order       */
+    0,                                                      /* sh.mode        */
+    0,      0,      0,                                      /* sh.into        */
+    0,      0,      0,                                      /* sh.from        */
+    0,                                                      /* sh.scale       */
+    0,      0,                                              /* sh.arg         */
+    0,      0,      0,      0,                              /* cs2.arg        */
+    0,      0,      0,      0,      0,      0,      0,       /* rsvd1         */
+};
+
+/*
+ * Structure:	pxvidopt
+ * Copyright:	(C) EPIX, Inc. 2000-2008
+ * Created:	Fri Feb 05 18:07:01 2010
+ * By:		EPIX(r)  XCAP V3.0
+ */
+struct pxvidopt pxvidopt_19_id31232 =
+{
+    60,                                                     /* ddch.len       */
+    19,                                                     /* ddch.mos       */
+    0,                                                      /* ddch.id        */
+    0,                                                      /* ddch.op        */
+    0,                                                      /* ddch.un        */
+    0,                                                      /* ddch.rw        */
+    0,                                                      /* ddch.fu        */
+    0,                                                      /* ddch.rs        */
+    0,                                                      /* imopstate      */
+    0,                                                      /* imopmode       */
+    0,                                                      /* panwraprnd     */
+    0,      0,      0,      0,      0,      0,      0,      0,       /* rsvd  */
+};
+
+/*
+ * Structure:	pxvidmem
+ * Copyright:	(C) EPIX, Inc. 2000-2008
+ * Created:	Fri Feb 05 18:07:01 2010
+ * By:		EPIX(r)  XCAP V3.0
+ */
+struct pxvidmem pxvidmem_72_id31232 =
+{
+    528,                                                    /* ddch.len       */
+    72,                                                     /* ddch.mos       */
+    0,                                                      /* ddch.id        */
+    0,                                                      /* ddch.op        */
+    0,                                                      /* ddch.un        */
+    0,                                                      /* ddch.rw        */
+    0,                                                      /* ddch.fu        */
+    0,                                                      /* ddch.rs        */
+    0,      0,      0,      0,      0,      0,      0,      0,      
+    0,      0,      0,      0,      0,      0,      0,      0,       /* space */
+    0,      0,      0,      0,      0,      0,      0,      0,      
+    0,      0,      0,      0,      0,      0,      0,      0,       /* start */
+    4294967295,     4294967295,     4294967295,     4294967295,     4294967295,     4294967295,     4294967295,     4294967295,     
+    4294967295,     4294967295,     4294967295,     4294967295,     4294967295,     4294967295,     4294967295,     4294967295,      /* length */
+    0,      0,      0,      0,      0,      0,      0,      0,      
+    0,      0,      0,      0,      0,      0,      0,      0,       /* rsvd  */
+};
+
+/*
+ * Structure:	pxcamcntl
+ * Copyright:	(C) EPIX, Inc. 2000-2008
+ * Created:	Fri Feb 05 18:07:01 2010
+ * By:		EPIX(r)  XCAP V3.0
+ */
+struct pxcamcntl pxcamcntl_264_id31232 =
+{
+    60,                                                     /* ddch.len       */
+    264,                                                    /* ddch.mos       */
+    0,                                                      /* ddch.id        */
+    0,                                                      /* ddch.op        */
+    0,                                                      /* ddch.un        */
+    0,                                                      /* ddch.rw        */
+    0,                                                      /* ddch.fu        */
+    0,                                                      /* ddch.rs        */
+    30819,                                                  /* fgfamily       */
+    23,                                                     /* fgmodel        */
+    65288,                                                  /* fgsubmodel     */
+    0,                                                      /* fgcustomid     */
+    0,      0,      0,      0,      0,      0,      0,      0,      
+    0,      0,      0,      0,      0,      0,      0,      0,      
+    0,      0,      0,      0,      0,      0,      0,      0,      
+    0,      0,      0,      0,      0,      0,      0,      0,      
+    0,      0,      0,      0,      0,      0,      0,      0,      
+    0,      0,      0,      0,      0,      0,      0,      0,      
+    0,      0,      0,      0,      0,      0,      0,      0,      
+    0,      0,      0,      0,      0,      0,      0,      0,      
+    0,      0,      0,      0,      0,      0,      0,      0,      
+    0,      0,      0,      0,      0,      0,      0,      0,       /* fgcamera */
+    3538944,        0,      2012177263,     0,      0,      0,      32,     0,      
+    0,      0,      29687936,       0,      30819,  23,     65288,  0,       /* rsvd1 */
+    0,                                                      /* cntlmode       */
+    0,                                                      /* cntlcntinit    */
+    0,                                                      /* cntlcntadj     */
+    0,                                                      /* cntlcntdeinit  */
+    0,      0,      0,      0,      0,      0,      0,      0,       /* cntlparms */
+    0,                                                      /* cntlcntxmteot  */
+    0,                                                      /* cntlcntrcveot  */
+    0,                                                      /* cntloptions    */
+    0,                                                      /* cntlcntreset   */
+    0,                                                      /* cntlrcvtout    */
+    0,                                                      /* cntlrsttout    */
+    0,                                                      /* cntlretries    */
+    0,                                                      /* cntlpause      */
+    0,                                                      /* cntlthrottle   */
+    0,      0,      0,      0,      0,      0,      0,       /* rsvd2         */
+    0x0,    0x0,    0x0,    0x0,    0x0,    0x0,    0x0,    0x0,    
+    0x0,    0x0,    0x0,    0x0,    0x0,    0x0,    0x0,    0x0,    
+    0x0,    0x0,    0x0,    0x0,    0x0,    0x0,    0x0,    0x0,    
+    0x0,    0x0,    0x0,    0x0,    0x0,    0x0,    0x0,    0x0,    
+    0x0,    0x0,    0x0,    0x0,    0x0,    0x0,    0x0,    0x0,    
+    0x0,    0x0,    0x0,    0x0,    0x0,    0x0,    0x0,    0x0,    
+    0x0,    0x0,    0x0,    0x0,    0x0,    0x0,    0x0,    0x0,    
+    0x0,    0x0,    0x0,    0x0,    0x0,    0x0,    0x0,    0x0,    
+    0x0,    0x0,    0x0,    0x0,    0x0,    0x0,    0x0,    0x0,    
+    0x0,    0x0,    0x0,    0x0,    0x0,    0x0,    0x0,    0x0,    
+    0x0,    0x0,    0x0,    0x0,    0x0,    0x0,    0x0,    0x0,    
+    0x0,    0x0,    0x0,    0x0,    0x0,    0x0,    0x0,    0x0,    
+    0x0,    0x0,    0x0,    0x0,    0x0,    0x0,    0x0,    0x0,    
+    0x0,    0x0,    0x0,    0x0,    0x0,    0x0,    0x0,    0x0,    
+    0x0,    0x0,    0x0,    0x0,    0x0,    0x0,    0x0,    0x0,    
+    0x0,    0x0,    0x0,    0x0,    0x0,    0x0,    0x0,    0x0,     /* cntldata.data32 */
+};
+
+/*
+ * Structure:	xcsv2format
+ * Copyright:	(C) EPIX, Inc. 2000-2008
+ * Created:	Fri Feb 05 18:07:01 2010
+ * By:		EPIX(r)  XCAP V3.0
+ */
+struct xcsv2format xcsv2format_32_id31232 =
+{
+    48,                                                     /* ddch.len       */
+    32,                                                     /* ddch.mos       */
+    0,                                                      /* ddch.id        */
+    0,                                                      /* ddch.op        */
+    0,                                                      /* ddch.un        */
+    0,                                                      /* ddch.rw        */
+    0,                                                      /* ddch.fu        */
+    0,                                                      /* ddch.rs        */
+    0,                                                      /* Bt8x9format    */
+    0,                                                      /* Bt8x9xtal      */
+    0,                                                      /* Bt8x9control   */
+    0,                                                      /* Bt819oform     */
+    0,                                                      /* Bt819vscale    */
+    0,                                                      /* Bt819adc       */
+    0,                                                      /* Bt829oform     */
+    0,                                                      /* Bt829vscale    */
+    0,                                                      /* Bt829adc       */
+    0,                                                      /* Bt829vtc       */
+    0,                                                      /* Bt829scloop    */
+    0,                                                      /* Bt848adc       */
+    0,                                                      /* Bt848clrctl    */
+    0,                                                      /* Bt819options   */
+    0,                                                      /* Bt848faultmask */
+    0,                                                      /* Bt848haltmask  */
+    0,      0,      0,      0,      0,      0,      0,      0,       /* rsvd  */
+};
+
+/*
+ * Structure:	xcsv2mode
+ * Copyright:	(C) EPIX, Inc. 2000-2008
+ * Created:	Fri Feb 05 18:07:01 2010
+ * By:		EPIX(r)  XCAP V3.0
+ */
+struct xcsv2mode xcsv2mode_21_id31232 =
+{
+    40,                                                     /* ddch.len       */
+    21,                                                     /* ddch.mos       */
+    0,                                                      /* ddch.id        */
+    0,                                                      /* ddch.op        */
+    0,                                                      /* ddch.un        */
+    0,                                                      /* ddch.rw        */
+    0,                                                      /* ddch.fu        */
+    0,                                                      /* ddch.rs        */
+    0,                                                      /* brightness     */
+    0,                                                      /* hue            */
+    0,                                                      /* lumagain       */
+    0,                                                      /* chromaUgain    */
+    0,                                                      /* chromaVgain    */
+    0,      0,      0,      0,      0,      0,      0,      0,       /* rsvd  */
+};
+
+/*
+ * Structure:	xcdxxformat
+ * Copyright:	(C) EPIX, Inc. 2000-2008
+ * Created:	Fri Feb 05 18:07:01 2010
+ * By:		EPIX(r)  XCAP V3.0
+ */
+struct xcdxxformat xcdxxformat_45_id31232 =
+{
+    124,                                                    /* ddch.len       */
+    45,                                                     /* ddch.mos       */
+    0,                                                      /* ddch.id        */
+    0,                                                      /* ddch.op        */
+    0,                                                      /* ddch.un        */
+    0,                                                      /* ddch.rw        */
+    0,                                                      /* ddch.fu        */
+    0,                                                      /* ddch.rs        */
+    0x7A0,                                                  /* PRINC          */
+    0x0,                                                    /* EXSYNC         */
+    0x7A1,                                                  /* exsync         */
+    0x7A1,                                                  /* prin           */
+    0x0,                                                    /* MWETS          */
+    0x0,                                                    /* LCD            */
+    0x0,                                                    /* PLLMX          */
+    0,                                                      /* clampreference */
+    0,                                                      /* pixelclkreference */
+    0,      0,                                              /* sdclkfreq      */
+    0,                                                      /* SDIET          */
+    0x0,                                                    /* PCWD           */
+    0x2,                                                    /* CLCCSE         */
+    0x0,                                                    /* TEST           */
+    0x0,                                                    /* CLCCSEhi       */
+    0x0,                                                    /* MSSMUB         */
+    0x0,                                                    /* ToucanOpt      */
+    0x0,                                                    /* ToucanCoef1    */
+    0x0,                                                    /* ToucanCoef2    */
+    0x0,                                                    /* ToucanCoef3    */
+    0,      0,      0,      0,                              /* exsyncinfo     */
+    0,      0,      0,      0,                              /* prininfo       */
+    0x0,                                                    /* XXX            */
+    0,      0,      0,      0,      0,      0,      0,       /* rsvd2         */
+};
