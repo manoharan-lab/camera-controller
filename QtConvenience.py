@@ -60,6 +60,8 @@ def make_button(label, callback, parent, shortcut=None, height=50, width=100,
     button.setFixedWidth(width)
     if shortcut is not None:
         button.setShortcut(shortcut)
+    if tooltip is not None:
+        button.setToolTip(tooltip)
     return button
 
 def make_control_group(parent, buttons, exclusive=True, default=None):

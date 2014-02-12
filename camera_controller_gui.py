@@ -57,6 +57,7 @@ from utility import mkdir_p
 from QtConvenience import (make_label, make_HBox, make_VBox, make_LineEdit,
                            make_button, make_control_group)
 
+
 #TODO: construct format file outside of the image grabbing loop, only
 # when someone changes bit depth or ROI
 #TODO: automate changing bit depth in PFRemote with the PF Remote DLL and some command like: SetProperty("DataResolution", Value(#1)")
@@ -65,7 +66,7 @@ from QtConvenience import (make_label, make_HBox, make_VBox, make_LineEdit,
 #TODO: limit text input for x and y in ROI to integers
 #TODO: make sure that in a time series, the images stop getting collected at the end of the time series-- no overwriting the beginning of the buffer
 #TODO: start slow time series by capturing an image, and start that as t=0
-
+#TODO: add light source tab
 
 class captureFrames(QtGui.QWidget):
     '''
@@ -76,6 +77,7 @@ class captureFrames(QtGui.QWidget):
     def __init__(self):
         super(captureFrames, self).__init__()
         self.initUI()
+        QtGui.QShortcut(QtGui.QKeySequence("Ctrl+Q"), self, self.close)
 
     def initUI(self):
 
@@ -97,69 +99,86 @@ class captureFrames(QtGui.QWidget):
         # Tab 1, Main controls viewing/saving
         #########################################
 
-        self.livebutton = make_button('Live', self.live, self, 'Ctrl+L')
-        self.freeze = make_button('Freeze', self.live, self, 'Ctrl+F')
-        self.save = make_button('Save', self.saveImage, self, 'Ctrl+S', width=200,
-                                tooltip='Saves the frame that was current when this button was clicked. Freeze first if you want the frame to stay visible.')
-        self.timeseries = make_button('Collect and Save Time Series',
-                                      self.collectTimeSeries, self, 'Ctrl+T', width=200)
-        self.timeseries_slow = make_button('Collect and Save Slow Time Series',
-                                           self.collectTimeSeries, self, width=200)
+        self.livebutton = make_button('Live\nf1', self.live, self, QtGui.QKeySequence('f1'))
+        self.livebutton.setStyleSheet("QPushButton:checked {background-color: green} QPushButton:pressed {background-color: green}")
+        self.freeze = make_button('Freeze\nf2', self.live, self, QtGui.QKeySequence('f2'))
+        self.freeze.setStyleSheet("QPushButton:checked {background-color: green} QPushButton:pressed {background-color: green}")
 
-        make_control_group(self, [self.livebutton, self.freeze,
-                                  self.save, self.timeseries, self.timeseries_slow],
+        self.save = make_button('Save\nesc', self.saveImage, self, QtGui.QKeySequence('esc'), width=200,
+                                tooltip='Saves the frame that was current when this button was clicked. Freeze first if you want the frame to stay visible.')
+        self.save.setCheckable(True)
+        self.save.setStyleSheet("QPushButton:checked {background-color: green} QPushButton:pressed {background-color: green}")
+
+        self.timeseries = make_button('Collect and Save\nTime Series',
+                                      self.collectTimeSeries, self, QtGui.QKeySequence('f3'), width=200)
+        self.timeseries.setStyleSheet("QPushButton:checked {background-color: green} QPushButton:pressed {background-color: green}")
+        self.timeseries.setCheckable(True)
+        self.timeseries_slow = make_button('Collect and Save\nSlow Time Series',
+                                           self.collectTimeSeries, self, QtGui.QKeySequence('f4'), width=200)
+        self.timeseries_slow.setStyleSheet("QPushButton:checked {background-color: green} QPushButton:pressed {background-color: green}")
+        self.timeseries_slow.setCheckable(True)
+
+        make_control_group(self, [self.livebutton, self.freeze],
                            default=self.livebutton)
+        #TODO: fix control group
+        #make_control_group(self, [self.save, self.timeseries, self.timeseries_slow])
 
         self.numOfFrames = make_LineEdit(75, '10')
 
-        self.numOfFrames2 = make_LineEdit(40, '10')
-        self.interval = make_LineEdit(40, '0.5')
+        self.numOfFrames2 = make_LineEdit(75, '10')
+        self.interval = make_LineEdit(75, '0.5')
 
         self.applybackground = make_button('Apply Background',
-                                           self.select_background, self)
+                                           self.select_background, self, width=200)
         self.applybackground.setCheckable(True)
+        self.applybackground.setStyleSheet("QPushButton:checked {background-color: green} QPushButton:pressed {background-color: green}")
         self.background_image_filename = make_label("No background applied")
         self.background_image = None
 
+        self.outfiletitle = QtGui.QLabel()
+        self.outfiletitle.setText('Your next image will be saved as\n(use filenames tab to change):')
+        self.outfiletitle.setFixedHeight(50)
+        self.outfiletitle.setWordWrap(True)
+        self.outfiletitle.setStyleSheet('font-weight:bold')
+
+        self.filename = str('placeholder')
+
+        self.path = QtGui.QLabel()
+        self.path.setText(self.filename)
+
         tab1 = QtGui.QWidget()
 
-        make_VBox(['This program is for viewing and saving images from cameras. Other features relate to this program\'s intended purpose of being used with cameras mounted to microscopes.',
-                   self.livebutton,
-                   self.freeze,
+        make_VBox([
+                   make_HBox([self.livebutton,
+                   self.freeze,1]),
                    1,
-                   'Save the image that was showing when you clicked this button. Will ask for confirmation of filename.',
+                   'Save image showing when clicked',
                    self.save,
                    1,
-                   'Stores the requested number of images to the buffer and then saves the files to hard disk. The frame time is set in the Photon Focus Remote software.',
+                   'Store the requested number of images to the buffer and then save the files to hard disk. \n\nThe frame rate is set in the Photon Focus Remote software.',
                    make_HBox([self.timeseries, self.numOfFrames, 'frames', 1]),
                    1,
-                   'Is equivalent to clicking "Save this Frame" <frames> times <minutes apart> minutes apart except it will only warn you if the file name is NOT ok.',
+                   'Equivalent to clicking "Save" at regular intervals',
                    make_HBox([self.timeseries_slow,
                               make_VBox([make_HBox([self.numOfFrames2, 'frames', 1]),
                                          make_HBox([self.interval, 'minutes apart', 1])])]),
                    1,
-                   "Automatically Apply a background image (only for display, it still saves the raw images)",
+                   "Automatically Apply a background image \n(only for display, it still saves the raw images)",
                    self.applybackground,
-                   self.background_image_filename],
+                   self.background_image_filename,
+                   self.outfiletitle,
+                   self.path,1],
                   tab1)
 
 
-
-        ###########################################
-        # Tab 2
-        ###########################################
-
-        tab2 = QtGui.QWidget()
-        tab2_layout = QtGui.QVBoxLayout(tab2)
-
+        ###################################################################
+        # Tab 2, camera settings need to be set in Photon Focus remote too
+        ###################################################################
 
         tab2title = QtGui.QLabel()
-        tab2title.setText('Modify camera settings.')
-        #tab2title.setFixedHeight(20)
+        tab2title.setText('Modify camera settings')
         tab2title.setAlignment(QtCore.Qt.AlignTop)
         tab2title.setWordWrap(True)
-        tab2_layout.addWidget(tab2title)
-
 
         camera = QtGui.QLabel()
         camera.setFixedHeight(30)
@@ -174,10 +193,6 @@ class captureFrames(QtGui.QWidget):
         self.cameraChoices.setFixedWidth(150)
         #self.bitdepth.activated[str].connect(self.changeROISize)
 
-        tab2_layout.addWidget(camera)
-        tab2_layout.addWidget(self.cameraChoices)
-
-
         bit = QtGui.QLabel()
         bit.setFixedHeight(30)
         bit.setAlignment(QtCore.Qt.AlignBottom)
@@ -190,17 +205,51 @@ class captureFrames(QtGui.QWidget):
         self.bitdepthChoices.addItem("12bit")
         #self.bitdepthChoices.addItem("14bit")
         self.bitdepthChoices.setFixedWidth(150)
+        self.bitdepthChoices.setCurrentIndex(2)
         self.bitdepthChoices.activated[str].connect(self.changeROISize)
         #self.bitdepth.activated[str].connect(self.changeROISize)
 
-        tab2_layout.addWidget(bit)
-        tab2_layout.addWidget(self.bitdepthChoices)
+        roititle = QtGui.QLabel()
+        roititle.setText('Frame size in pixels. Default to maximum size.\nRegions are taken from top left.')
+        roititle.setFixedHeight(40)
+        roititle.setWordWrap(True)
+        roititle.setAlignment(QtCore.Qt.AlignTop)
+
+        roiSizeLabel = QtGui.QLabel()
+        roiSizeLabel.setFixedHeight(30)
+        roiSizeLabel.setAlignment(QtCore.Qt.AlignBottom)
+        roiSizeLabel.setText('Region of Interest Size:')
+        roiSizeLabel.setStyleSheet('font-weight:bold')
+
+        self.roiSizeChoices = QtGui.QComboBox()
+        self.roiSizeChoices.addItem("1024 x 1024")
+        self.roiSizeChoices.addItem("512 x 512")
+        self.roiSizeChoices.addItem("256 x 256 ")
+        self.roiSizeChoices.addItem("128 x 128")
+        self.roiSizeChoices.addItem("64 x 64")
+        self.roiSizeChoices.setFixedWidth(150)
+        self.roiSizeChoices.activated[str].connect(self.changeROISize)
+
+        roiLocLabel = QtGui.QLabel()
+        roiLocLabel.setFixedHeight(45)
+        roiLocLabel.setAlignment(QtCore.Qt.AlignBottom)
+        roiLocLabel.setText('ROI Location: \nTODO')
+        roiLocLabel.setStyleSheet('font-weight:bold')
 
         self.framerate = QtGui.QLabel()
-        self.framerate.setText('You also need to change the data output type in PFRemote.')
-        tab2_layout.addWidget(self.framerate)
+        self.framerate.setText('Must match the data output type in PFRemote')
 
-        tab2_layout.addStretch(1)
+        tab2 = QtGui.QWidget()
+
+        make_VBox([
+                   camera, self.cameraChoices,
+                   bit, self.bitdepthChoices,
+                   self.framerate,
+                   roiSizeLabel, roititle, self.roiSizeChoices,
+                   roiLocLabel,
+                   1],
+                  tab2)
+
 
         #########################################
         # Tab 3, Options for saving output files
@@ -214,7 +263,7 @@ class captureFrames(QtGui.QWidget):
         self.outfile.setAlignment(QtCore.Qt.AlignTop)
 
         tab3title = QtGui.QLabel()
-        tab3title.setText('These settings are for selecting the output format of your images and for automatically generating file names for images when you save them.')
+        tab3title.setText('Select the output format of your images and set up automatically generated file names for saving images')
         tab3title.setFixedHeight(50)
         tab3title.setWordWrap(True)
         tab3title.setAlignment(QtCore.Qt.AlignTop)
@@ -229,7 +278,6 @@ class captureFrames(QtGui.QWidget):
 
         self.outputformat = QtGui.QComboBox()
         self.outputformat.addItem(".tif")
-        self.outputformat.addItem(".png")
         self.outputformat.setFixedWidth(150)
         self.outputformat.activated[str].connect(self.createFilename)
 
@@ -289,6 +337,12 @@ class captureFrames(QtGui.QWidget):
         dirLabel.setStyleSheet('font-weight:bold')
         dirLabel.setFixedHeight(40)
         dirLabel.setAlignment(QtCore.Qt.AlignBottom)
+
+        self.browse = QtGui.QPushButton('Browse', self)
+        self.browse.setFixedHeight(30) #attribute from qwidget class
+        self.browse.setFixedWidth(100)
+        self.browse.clicked.connect(self.select_directory)
+
         self.typingspace = QtGui.QLineEdit()
         self.typingspace.textChanged.connect(self.createFilename)
         #self.typingspace.setWordWrapMode(QtGui.QTextOption.WrapAnywhere)
@@ -319,6 +373,7 @@ class captureFrames(QtGui.QWidget):
         self.resetSavingOptions() #should set file name
 
         tab3_layout.addWidget(dirLabel)
+        tab3_layout.addWidget(self.browse)
         tab3_layout.addWidget(self.typingspace)
         tab3_layout.addLayout(hbox3)
         tab3_layout.addLayout(hbox4)
@@ -365,9 +420,8 @@ class captureFrames(QtGui.QWidget):
         tab4 = QtGui.QWidget()
         tab4_layout = QtGui.QVBoxLayout(tab4)
 
-
         tab4title = QtGui.QLabel()
-        tab4title.setText('Metadata that we want to save with the images-- also want to save some other metadata that does not need to be entered manually.')
+        tab4title.setText('User supplied metadata can be saved with button here, or alongside every image with a setting on the filenames tab')
         tab4title.setFixedHeight(50)
         tab4title.setWordWrap(True)
         tab4title.setAlignment(QtCore.Qt.AlignTop)
@@ -379,43 +433,13 @@ class captureFrames(QtGui.QWidget):
         microLabel.setText('Microscope:')
         microLabel.setStyleSheet('font-weight:bold')
 
-
-        self.microgroup = QtGui.QButtonGroup(QtGui.QWidget(self))
-        self.microgroup.setExclusive(True)
-
-        uberscope = QtGui.QCheckBox()
-        uberscope.setText("Uberscope")
-        uberscope.toggle()
-        self.microgroup.addButton(uberscope)
-
-        mgruberscope = QtGui.QCheckBox()
-        mgruberscope.setText("Mgruberscope")
-        self.microgroup.addButton(mgruberscope)
-
-        george = QtGui.QCheckBox()
-        george.setText("George")
-        self.microgroup.addButton(george)
-
-        superscope = QtGui.QCheckBox()
-        superscope.setText("Superscope")
-        self.microgroup.addButton(superscope)
-
-        otherscope = QtGui.QCheckBox()
-        otherscope.setText("Other:")
-        self.microgroup.addButton(otherscope)
-
-        self.otherscopedetails = QtGui.QLineEdit()
-
-        hbox10 = QtGui.QHBoxLayout()
-        hbox10.addWidget(otherscope)
-        hbox10.addWidget(self.otherscopedetails)
-
-        tab4_layout.addWidget(microLabel)
-        tab4_layout.addWidget(uberscope)
-        tab4_layout.addWidget(mgruberscope)
-        tab4_layout.addWidget(george)
-        tab4_layout.addWidget(superscope)
-        tab4_layout.addLayout(hbox10)
+        self.microSelections = QtGui.QComboBox(editable=True)
+        self.microSelections.setFixedWidth(250)
+        self.microSelections.addItem("Uberscope")
+        self.microSelections.addItem("Mgruberscope")
+        self.microSelections.addItem("George")    
+        self.microSelections.addItem("Superscope")    
+        self.microSelections.addItem("Other: (edit to specify)")    
 
         lightLabel = QtGui.QLabel()
         lightLabel.setFixedHeight(30)
@@ -423,91 +447,39 @@ class captureFrames(QtGui.QWidget):
         lightLabel.setText('Light source:')
         lightLabel.setStyleSheet('font-weight:bold')
 
-        self.illumgroup = QtGui.QButtonGroup(QtGui.QWidget(self))
-        self.illumgroup.setExclusive(True)
-
-        red = QtGui.QCheckBox()
-        red.setText("Red laser, 660 nm")
-        red.toggle()
-        self.illumgroup.addButton(red)
-
-        white = QtGui.QCheckBox()
-        white.setText("White, brightfield illumination")
-        self.illumgroup.addButton(white)
-
-        otherlight = QtGui.QCheckBox()
-        otherlight.setText("Other:")
-        self.illumgroup.addButton(otherlight)
-
-        self.otherlightdetails = QtGui.QLineEdit()
-
-        hbox0 = QtGui.QHBoxLayout()
-        hbox0.addWidget(otherlight)
-        hbox0.addWidget(self.otherlightdetails)
-
-        tab4_layout.addWidget(lightLabel)
-        tab4_layout.addWidget(red)
-        tab4_layout.addWidget(white)
-        tab4_layout.addLayout(hbox0)
+        self.lightSelections = QtGui.QComboBox(editable=True)
+        self.lightSelections.setFixedWidth(250)
+        self.lightSelections.addItem("Red Laser, 660 nm")
+        self.lightSelections.addItem("White LED Illuminator")
+        self.lightSelections.addItem("Other: (edit to specify)")
 
         objectiveLabel = QtGui.QLabel()
         objectiveLabel.setFixedHeight(30)
         objectiveLabel.setAlignment(QtCore.Qt.AlignBottom)
         objectiveLabel.setText('Microscope Objective:')
         objectiveLabel.setStyleSheet('font-weight:bold')
-        tab4_layout.addWidget(objectiveLabel)
 
-        self.objgroup = QtGui.QButtonGroup(QtGui.QWidget(self))
-        self.objgroup.setExclusive(True)
-
-        water60x = QtGui.QCheckBox()
-        water60x.setText("Nikon 60x Water Immersion, Correction Collar:")
-        water60x.toggle()
-        self.objgroup.addButton(water60x)
-
-        self.collardetails = QtGui.QLineEdit()
-
-        hbox = QtGui.QHBoxLayout()
-        hbox.addWidget(water60x)
-        hbox.addWidget(self.collardetails)
-
-        oil100x = QtGui.QCheckBox()
-        oil100x.setText("Nikon 100x Oil Immersion")
-        self.objgroup.addButton(oil100x)
-
-        air10x = QtGui.QCheckBox()
-        air10x.setText("Nikon 10x, air")
-        self.objgroup.addButton(air10x)
-
-        air40x = QtGui.QCheckBox()
-        air40x.setText("Nikon 40x, air")
-        self.objgroup.addButton(air40x)
-
-        otherobj = QtGui.QCheckBox()
-        otherobj.setText("Other:")
-        self.objgroup.addButton(otherobj)
-
-        self.otherobjdetails = QtGui.QLineEdit()
-
-        hbox2 = QtGui.QHBoxLayout()
-        hbox2.addWidget(otherobj)
-        hbox2.addWidget(self.otherobjdetails)
-
-        tab4_layout.addLayout(hbox)
-        tab4_layout.addWidget(oil100x)
-        tab4_layout.addWidget(air10x)
-        tab4_layout.addWidget(air40x)
-        tab4_layout.addLayout(hbox2)
+        self.objectiveSelections = QtGui.QComboBox(editable=True)
+        self.objectiveSelections.addItem("Nikon 60x Water Immersion, Correction Collar:")
+        self.objectiveSelections.addItem("Nikon 100x Oil Immersion")
+        self.objectiveSelections.addItem("Nikon 10x, air")
+        self.objectiveSelections.addItem("Nikon 40x, air")
+        self.objectiveSelections.addItem("Other: (edit to specify)")
 
         tubeLensLabel = QtGui.QLabel()
-        tubeLensLabel.setFixedHeight(30)
+        #tubeLensLabel.setFixedHeight(30)
         tubeLensLabel.setAlignment(QtCore.Qt.AlignBottom)
-        tubeLensLabel.setText('Using 1.5x tube lens?')
+        tubeLensLabel.setText('Using additional 1.5x tube lens?')
         tubeLensLabel.setStyleSheet('font-weight:bold')
 
         self.tubeYes = QtGui.QCheckBox()
         self.tubeYes.setText("Yes")
 
+        hbox = QtGui.QHBoxLayout()
+        hbox.addWidget(tubeLensLabel)
+        hbox.addWidget(self.tubeYes)
+        hbox.addStretch(1)
+        
         notesLabel = QtGui.QLabel()
         notesLabel.setFixedHeight(30)
         notesLabel.setAlignment(QtCore.Qt.AlignBottom)
@@ -521,8 +493,14 @@ class captureFrames(QtGui.QWidget):
         self.saveMetaData.setFixedWidth(200)
         self.saveMetaData.clicked.connect(self.saveMetadata)
 
-        tab4_layout.addWidget(tubeLensLabel)
-        tab4_layout.addWidget(self.tubeYes)
+        tab4_layout.addWidget(microLabel)
+        tab4_layout.addWidget(self.microSelections)
+        tab4_layout.addWidget(lightLabel)
+        tab4_layout.addWidget(self.lightSelections)
+        tab4_layout.addWidget(objectiveLabel)
+        tab4_layout.addWidget(self.objectiveSelections)
+
+        tab4_layout.addLayout(hbox)
         tab4_layout.addWidget(notesLabel)
         tab4_layout.addWidget(self.metaNotes)
         tab4_layout.addWidget(self.saveMetaData)
@@ -535,45 +513,118 @@ class captureFrames(QtGui.QWidget):
 
 
         ################################
-        # Tab 5, Adjust the ROI
+        # Tab 5, place to enter metadata
         ################################
-
         tab5 = QtGui.QWidget()
         tab5_layout = QtGui.QVBoxLayout(tab5)
 
-        tab5title = QtGui.QLabel()
-        tab5title.setText('ROI = Region of Interest. Choose the frame size and the region of the camera to capture from. Default to full screen.')
-        tab5title.setFixedHeight(40)
-        tab5title.setWordWrap(True)
-        tab5title.setAlignment(QtCore.Qt.AlignTop)
-        tab5_layout.addWidget(tab5title)
+        sqtitle = QtGui.QLabel()
+        sqtitle.setText('Square:')
+        sqtitle.setFixedHeight(30)
+        sqtitle.setStyleSheet('font-weight:bold')
+        sqtitle.setWordWrap(True)
+        sqtitle.setAlignment(QtCore.Qt.AlignTop)
 
-        roiSizeLabel = QtGui.QLabel()
-        roiSizeLabel.setFixedHeight(30)
-        roiSizeLabel.setAlignment(QtCore.Qt.AlignBottom)
-        roiSizeLabel.setText('ROI Size:')
-        roiSizeLabel.setStyleSheet('font-weight:bold')
+        self.edgeLabel = QtGui.QLabel()
+        self.edgeLabel.setText("Edge Length (pixels):")
+        self.edgeEntry = QtGui.QLineEdit()
 
-        self.roiSizeChoices = QtGui.QComboBox()
-        self.roiSizeChoices.addItem("1024 x 1024")
-        self.roiSizeChoices.addItem("512 x 512")
-        self.roiSizeChoices.addItem("256 x 256 ")
-        self.roiSizeChoices.addItem("128 x 128")
-        self.roiSizeChoices.addItem("64 x 64")
-        self.roiSizeChoices.setFixedWidth(150)
-        self.roiSizeChoices.activated[str].connect(self.changeROISize)
-
-        roiLocationLabel = QtGui.QLabel()
-        #roiLocationLabel.setFixedHeight(80)
-        #roiLocationLabel.setAlignment(QtCore.Qt.AlignBottom)
-        roiLocationLabel.setText('Small frames taken from top left')
+        hbox4 = QtGui.QHBoxLayout()
+        hbox4.addWidget(self.edgeLabel)
+        hbox4.addWidget(self.edgeEntry)
 
 
+        self.cornerLabel = QtGui.QLabel()
+        self.cornerLabel.setText("Upper Left Corner Location (row, col):")
+        self.cornerRowEntry = QtGui.QLineEdit()
+        self.cornerColEntry = QtGui.QLineEdit()
 
-        tab5_layout.addWidget(roiSizeLabel)
-        tab5_layout.addWidget(self.roiSizeChoices)
-        tab5_layout.addWidget(roiLocationLabel)
+        hbox5 = QtGui.QHBoxLayout()
+        hbox5.addWidget(self.cornerLabel)
+        hbox5.addWidget(self.cornerRowEntry)
+        hbox5.addWidget(self.cornerColEntry)
 
+        self.sqcolor = QtGui.QComboBox()
+        self.sqcolor.addItem("Red")
+        self.sqcolor.addItem("Green")
+        self.sqcolor.addItem("Blue")
+        self.sqcolor.setCurrentIndex(1)
+        self.sqcolor.setFixedWidth(150)
+
+
+        cirtitle = QtGui.QLabel()
+        cirtitle.setText('Circle:')
+        cirtitle.setFixedHeight(30)
+        cirtitle.setStyleSheet('font-weight:bold')
+        cirtitle.setWordWrap(True)
+        cirtitle.setAlignment(QtCore.Qt.AlignTop)
+
+
+
+        self.diamLabel = QtGui.QLabel()
+        self.diamLabel.setText("Diameter (pixels):")
+        self.diamEntry = QtGui.QLineEdit()
+
+        hbox6 = QtGui.QHBoxLayout()
+        hbox6.addWidget(self.diamLabel)
+        hbox6.addWidget(self.diamEntry)
+
+
+        self.centerLabel = QtGui.QLabel()
+        self.centerLabel.setText("Center Location (row, col):")
+        self.centerRowEntry = QtGui.QLineEdit()
+        self.centerColEntry = QtGui.QLineEdit()
+
+        hbox7 = QtGui.QHBoxLayout()
+        hbox7.addWidget(self.centerLabel)
+        hbox7.addWidget(self.centerRowEntry)
+        hbox7.addWidget(self.centerColEntry)
+
+        self.circolor = QtGui.QComboBox()
+        self.circolor.addItem("Red")
+        self.circolor.addItem("Green")
+        self.circolor.addItem("Blue")
+        self.circolor.setCurrentIndex(1)
+        self.circolor.setFixedWidth(150)
+
+
+
+        gridtitle = QtGui.QLabel()
+        gridtitle.setText('Grid:')
+        gridtitle.setFixedHeight(30)
+        gridtitle.setStyleSheet('font-weight:bold')
+        gridtitle.setWordWrap(True)
+        gridtitle.setAlignment(QtCore.Qt.AlignTop)
+
+        self.meshLabel = QtGui.QLabel()
+        self.meshLabel.setText("Grid Square Size (pixels):")
+        self.meshSizeEntry = QtGui.QLineEdit()
+
+        hbox8 = QtGui.QHBoxLayout()
+        hbox8.addWidget(self.meshLabel)
+        hbox8.addWidget(self.meshSizeEntry)
+
+        self.gridcolor = QtGui.QComboBox()
+        self.gridcolor.addItem("Red")
+        self.gridcolor.addItem("Green")
+        self.gridcolor.addItem("Blue")
+        self.gridcolor.setCurrentIndex(1)
+        self.gridcolor.setFixedWidth(150)
+
+
+        tab5_layout.addWidget(sqtitle)
+        tab5_layout.addLayout(hbox4)
+        tab5_layout.addLayout(hbox5)
+        tab5_layout.addWidget(self.sqcolor)
+        tab5_layout.addStretch(1)
+        tab5_layout.addWidget(cirtitle)
+        tab5_layout.addLayout(hbox6)
+        tab5_layout.addLayout(hbox7)
+        tab5_layout.addWidget(self.circolor)
+        tab5_layout.addStretch(1)
+        tab5_layout.addWidget(gridtitle)
+        tab5_layout.addLayout(hbox8)
+        tab5_layout.addWidget(self.gridcolor)
         tab5_layout.addStretch(1)
 
         ################################################
@@ -581,9 +632,9 @@ class captureFrames(QtGui.QWidget):
         tab_widget = QtGui.QTabWidget()
         tab_widget.addTab(tab1, "Image Capture")
         tab_widget.addTab(tab2, "Camera")
-        tab_widget.addTab(tab3, "Saving")
+        tab_widget.addTab(tab3, "Filenames")
         tab_widget.addTab(tab4, "Meta Data")
-        tab_widget.addTab(tab5, "ROI")
+        tab_widget.addTab(tab5, "Overlays")
 
         #Text at bottom of screen
         self.imageinfo = QtGui.QLabel()
@@ -632,9 +683,8 @@ class captureFrames(QtGui.QWidget):
         self.setLayout(largevbox)
 
         self.setGeometry(100, 100, 800, 500) #window size and location
-        self.setWindowTitle('Continuous Image Capture')
+        self.setWindowTitle('Camera Controller')
         self.show()
-
 
     def timerEvent(self, event):
         #print time.time()
@@ -652,8 +702,9 @@ class captureFrames(QtGui.QWidget):
 
         #show info about this image
         def set_imageinfo(maxval=self.pfim.max(), frame_number=frame_number):
+            portion = round(np.sum(self.pfim == maxval)/(1.0*np.size(self.pfim)),3)
             self.imageinfo.setText(
-                'Max pixel value: {}, Frame number: {}'.format(maxval, frame_number))
+                'Max pixel value: {}, Fraction at max: {}, Frame number in buffer: {}'.format(maxval, portion, frame_number))
 
         set_imageinfo()
 
@@ -718,91 +769,81 @@ class captureFrames(QtGui.QWidget):
         #grab image for saving
         selectedFrame = self.im
 
-        #ask if the current autogenerated filename is OK with user
-        #leave extra spaces after image as to make dialog window long enough for text edit
+        usersfilename = fname
 
-        ok = False
+        if series == False:
+            numOfFrames = 1
+        else:
+            #TODO: implement numOfFrames2
+            numOfFrames = int(str(self.numOfFrames.text()))
 
-        if not slowseries:
-            usersfilename, ok = savingcheck.getText(self, 'Output Filename', 'This image/metadata will be saved as:                                                                                                                         ', 0, fname);
-        if slowseries: #no option to change it
-            usersfilename = fname
+        for i in range(1,numOfFrames+1):
+            if series == True:
+                #get each image
+                selectedFrame = frameToArray(i)
+                selectedFrame = toimage(selectedFrame) #PIL image
+                usersfilename = self.filename
 
-        #TODO: renaming only allowed for single images, not tseries
-        #TODO: tseries require number?
-        #TODO: allow user to choose different directory?
-        if ok or slowseries: #user thinks name is now OK
-            if series == False:
-                numOfFrames = 1
-            else:
-                #TODO: implement numOfFrames2
-                numOfFrames = int(str(self.numOfFrames.text()))
+            #TODO: move overwriting check elsewhere
+            '''#don't overwrite files
+            if os.path.isfile(str(usersfilename)):
+                directorywarning = QtGui.QMessageBox()
+                directorywarning.setWindowTitle('Filename Error')
+                directorywarning.setText('Overwriting data not allowed. Choose a different name or delete the item with the same name.')
+                ret = directorywarning.exec_()
+                self.saveImageOrYaml(img) #cycle back to try again
 
-            for i in range(1,numOfFrames+1):
-                if series == True:
-                    #get each image
-                    selectedFrame = frameToArray(i)
-                    selectedFrame = toimage(selectedFrame) #PIL image
-                    usersfilename = self.filename
+            else:'''
+            #check if directory exists, and make it, save, or warn
+            directory, filename = os.path.split(str(usersfilename))
 
-                #don't overwrite files
-                if os.path.isfile(str(usersfilename)):
-                    directorywarning = QtGui.QMessageBox()
-                    directorywarning.setWindowTitle('Filename Error')
-                    directorywarning.setText('Overwriting data not allowed. Choose a different name or delete the item with the same name.')
-                    ret = directorywarning.exec_()
-                    self.saveImageOrYaml(img) #cycle back to try again
+            mkdir_p(directory)
 
-                else:
-                    #check if directory exists, and make it, save, or warn
-                    directory, filename = os.path.split(str(usersfilename))
-
-                    mkdir_p(directory)
-
-                    if os.path.isdir(directory):
-                        if img:#save image
-                            if usersfilename[-4:]== '.tif':
-                                selectedFrame.save(str(usersfilename), autoscale=False)
-                            else:
-                                selectedFrame.save(str(usersfilename), autoscale=False)
-                        else:#write yaml
-                            data = self.createYaml()
-                            with open(str(usersfilename), 'w') as outfile:
-                                outfile.write( yaml.dump(data, default_flow_style=True) )
-
-                        #saving was successful, advance the incrementers if they are being used
-                        #numbered file, increment if checked and if saving an image
-                        if img and self.numberincrement.isChecked(): #include number
-                            int(self.keynumber.text()) + 1
-                            self.keynumber.setText(str((int(self.keynumber.text())+ 1)).zfill(4))
-                        self.createFilename()
-
-                        if not slowseries:
-                            if series == False or i == numOfFrames:
-                                #only increment the directory if done with this series
-                                #numbered directory, increment if checked
-                                if img and self.numberincrementdir.isChecked():
-                                    int(self.keynumberdir.text())+1
-                                    #automatically sets first image number back to zero
-                                    self.keynumber.setText(str(int(0)).zfill(4))
-                                    self.keynumberdir.setText(str((int(self.keynumberdir.text())+ 1)).zfill(2))
-                                self.createFilename()
-                        if slowseries:
-                            if self.lastimageflag == True:
-                                self.livebutton.toggle()
-                                #only increment the directory if done with the series
-                                if img and self.numberincrementdir.isChecked():
-                                    int(self.keynumberdir.text())+1
-                                    #automatically sets first image number back to zero
-                                    self.keynumber.setText(str(int(0)).zfill(4))
-                                    self.keynumberdir.setText(str((int(self.keynumberdir.text())+ 1)).zfill(2))
-                                self.createFilename()
+            if os.path.isdir(directory):
+                if img:#save image
+                    if usersfilename[-4:]== '.tif':
+                        selectedFrame.save(str(usersfilename), autoscale=False)
                     else:
-                        directorywarning = QtGui.QMessageBox()
-                        directorywarning.setWindowTitle('Filename Error')
-                        directorywarning.setText('The directory you chose does not exist. This software will only create the directory for you if the path exists all the way up to the final subdirectory. Create the necessary path structure on your computer or save to an already existing location. Image NOT saved.')
-                        ret = directorywarning.exec_()
-                        self.saveImageOrYaml(img)
+                        selectedFrame.save(str(usersfilename), autoscale=False)
+                else:#write yaml
+                    data = self.createYaml()
+                    with open(str(usersfilename), 'w') as outfile:
+                        outfile.write( yaml.dump(data, default_flow_style=True) )
+
+                #saving was successful, advance the incrementers if they are being used
+                #numbered file, increment if checked and if saving an image
+                if img and self.numberincrement.isChecked(): #include number
+                    int(self.keynumber.text()) + 1
+                    self.keynumber.setText(str((int(self.keynumber.text())+ 1)).zfill(4))
+                self.createFilename()
+
+                if not slowseries:
+                    if series == False or i == numOfFrames:
+                        #only increment the directory if done with this series
+                        #numbered directory, increment if checked
+                        if img and self.numberincrementdir.isChecked():
+                            int(self.keynumberdir.text())+1
+                            #automatically sets first image number back to zero
+                            self.keynumber.setText(str(int(0)).zfill(4))
+                            self.keynumberdir.setText(str((int(self.keynumberdir.text())+ 1)).zfill(2))
+                        self.createFilename()
+                if slowseries:
+                    if self.lastimageflag == True:
+                        self.livebutton.toggle()
+                        #only increment the directory if done with the series
+                        if img and self.numberincrementdir.isChecked():
+                            int(self.keynumberdir.text())+1
+                            #automatically sets first image number back to zero
+                            self.keynumber.setText(str(int(0)).zfill(4))
+                            self.keynumberdir.setText(str((int(self.keynumberdir.text())+ 1)).zfill(2))
+                        self.createFilename()
+            else:
+                directorywarning = QtGui.QMessageBox()
+                directorywarning.setWindowTitle('Filename Error')
+                directorywarning.setText('The directory you chose does not exist. This software will only create the directory for you if the path exists all the way up to the final subdirectory. Create the necessary path structure on your computer or save to an already existing location. Image NOT saved.')
+                ret = directorywarning.exec_()
+                self.saveImageOrYaml(img)
+        self.save.setChecked(False)
 
     def live(self):
         '''
@@ -894,15 +935,16 @@ class captureFrames(QtGui.QWidget):
         if self.numberincrement.isChecked(): #include number
             self.filename += str(self.keynumber.text())
 
-        #finsih with the the file format
+        #finish with the the file format
         if self.outputformat.currentText() == ".tif": #include number
             self.filename += ".tif"
 
-        if self.outputformat.currentText() == ".png": #include number
-            self.filename += ".png"
-
         #update QLabel with example filename
         self.outfile.setText(self.filename)
+        self.path.setText(self.filename)
+        if os.path.isfile(self.filename):
+            self.path.setText('DANGER: SET TO OVERWRITE DATA, CHANGE FILENAME')
+
 
 
     def resetSavingOptions(self):
@@ -950,19 +992,9 @@ class captureFrames(QtGui.QWidget):
 
     def createYaml(self):
 
-        microName = str(self.microgroup.checkedButton().text())
-        if microName == 'Other:':
-            microName = str(self.otherscopedetails.text())
-
-        lightName = str(self.illumgroup.checkedButton().text())
-        if lightName == 'Other:':
-            lightName = str(self.otherlightdetails.text())
-
-        objName = str(self.objgroup.checkedButton().text())
-        if objName == 'Other:':
-            objName = str(self.otherobjdetails.text())
-        elif objName == "Nikon 60x Water Immersion, Correction Collar:":
-            objName = str(objName) + str(self.collardetails.text())
+        microName = self.microSelections.currentText()
+        lightName = self.lightSelections.currentText()
+        objName = self.objectiveSelections.currentText()
 
         if self.tubeYes.checkState():
             tubestate = '1.5X'
@@ -974,6 +1006,12 @@ class captureFrames(QtGui.QWidget):
         return dict(Microscope = microName, Light = lightName, Objective = objName, TubeMagnification = tubestate, Notes = notes)
 
     def select_background(self):
+        stutus = 'stay frozen'
+        if self.livebutton.isChecked(): #pause live feed
+            self.freeze.setChecked(True)
+            self.live()
+            status = 'return to live'
+
         if self.applybackground.isChecked():
             filename = QtGui.QFileDialog.getOpenFileName(
                 self, "Choose a background File", ".",
@@ -984,7 +1022,24 @@ class captureFrames(QtGui.QWidget):
             self.background_image_filename.setText("No background applied")
             self.background_image = None
 
+        if status == 'return to live':
+            self.livebutton.setChecked(True)
+            self.live()
 
+    def select_directory(self):
+        status = 'stay frozen'
+        if self.livebutton.isChecked(): #pause live feed
+            self.freeze.setChecked(True)
+            self.live()
+            status = 'return to live'
+        
+        directory = QtGui.QFileDialog.getExistingDirectory(
+            self, "Choose a directory to save your data in", ".")
+        self.typingspace.setText(directory)
+
+        if status == 'return to live':
+            self.livebutton.setChecked(True)
+            self.live()
 
 def main():
 
