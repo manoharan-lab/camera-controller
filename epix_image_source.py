@@ -58,7 +58,6 @@ def get_image():
     most_recent_buffer = epix.pxd_capturedBuffer(1)
     xdim = epix.pxd_imageXdim()
     ydim = epix.pxd_imageYdim()
-    print xdim, ydim
 
     imagesize = xdim*ydim
 
@@ -72,7 +71,7 @@ def get_frame_number():
     return epix.pxd_capturedBuffer(1)-1
 
 def finished_live_sequence():
-    return epix.goneLive(1) == 0
+    return epix.pxd_goneLive(1) == 0
 
 def start_continuous_capture():
     # here we keep a buffer 1000 long and capture 1000000 image.
@@ -86,3 +85,21 @@ def start_sequence_capture(n_frames):
 
 def stop_live_capture():
     epix.pxd_goUnLive(0x1)
+
+def frameToArray(bufnum):
+
+    xdim = epix.pxd_imageXdim()
+    ydim = epix.pxd_imageYdim()
+
+    imagesize = xdim*ydim
+
+    c_buf = (c_ubyte * imagesize)(0)
+    c_buf_size = sizeof(c_buf)
+
+    epix.pxd_readuchar(0x1,bufnum,0,0,-1,ydim, c_buf, c_buf_size, "Gray")
+
+    im = np.frombuffer(c_buf, c_ubyte)
+    im = im.reshape([xdim, ydim])
+
+    return im
+

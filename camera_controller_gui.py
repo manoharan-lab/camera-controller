@@ -31,7 +31,8 @@ Constant Frame Rate using the Photon Focus Remote software. In
 this mode, the camera sends out images at regular intervals
 regardless of whether they are being read or not.
 
-The timer event is for refreshing the window viewed by the user.
+The timer event is for refreshing the window viewed by the user
+and for timing long, slow time series captures.
 
 .. moduleauthor:: Rebecca W. Perry <perry.becca@gmail.com>
 .. moduleauthor:: Aaron Goldfain
@@ -113,6 +114,7 @@ class captureFrames(QtGui.QWidget):
                                       self.collectTimeSeries, self, QtGui.QKeySequence('f3'), width=200)
         self.timeseries.setStyleSheet("QPushButton:checked {background-color: green} QPushButton:pressed {background-color: green}")
         self.timeseries.setCheckable(True)
+
         self.timeseries_slow = make_button('Collect and Save\nSlow Time Series',
                                            self.collectTimeSeries, self, QtGui.QKeySequence('f4'), width=200)
         self.timeseries_slow.setStyleSheet("QPushButton:checked {background-color: green} QPushButton:pressed {background-color: green}")
@@ -120,7 +122,7 @@ class captureFrames(QtGui.QWidget):
 
         make_control_group(self, [self.livebutton, self.freeze],
                            default=self.livebutton)
-        #TODO: fix control group
+        #TODO: fix control group, should you be allowed to do multiple at once?
         #make_control_group(self, [self.save, self.timeseries, self.timeseries_slow])
 
         self.numOfFrames = make_LineEdit(75, '10')
@@ -715,6 +717,7 @@ class captureFrames(QtGui.QWidget):
                 self.imageCounter +=1
                 if self.imageCounter == float(str(self.numOfFrames2.text())):
                     self.lastimageflag = True
+                    self.timeseries_slow.setChecked(False)
                 self.saveImages()
             self.lastmod = currentmod
 
@@ -780,7 +783,7 @@ class captureFrames(QtGui.QWidget):
         for i in range(1,numOfFrames+1):
             if series == True:
                 #get each image
-                selectedFrame = frameToArray(i)
+                selectedFrame = camera.frameToArray(i)
                 selectedFrame = toimage(selectedFrame) #PIL image
                 usersfilename = self.filename
 
@@ -794,7 +797,7 @@ class captureFrames(QtGui.QWidget):
                 self.saveImageOrYaml(img) #cycle back to try again
 
             else:'''
-            #check if directory exists, and make it, save, or warn
+
             directory, filename = os.path.split(str(usersfilename))
 
             mkdir_p(directory)
@@ -845,6 +848,7 @@ class captureFrames(QtGui.QWidget):
                 self.saveImageOrYaml(img)
         self.save.setChecked(False)
 
+
     def live(self):
         '''
         Rolling repeating frame buffer.
@@ -857,9 +861,7 @@ class captureFrames(QtGui.QWidget):
 
 
     def collectTimeSeries(self):
-        #both of the fast and slow varieties
-        #openEpix()
-
+        #both the fast and slow varieties
         if self.timeseries.isChecked():#fast
             numberOfImages = int(self.numOfFrames.text())
             camera.start_sequence_capture(numberOfImages)
@@ -978,7 +980,7 @@ class captureFrames(QtGui.QWidget):
         self.numOfCols = size[current]
         self.image = np.random.random([self.numOfRows, self.numOfCols])*100
         camera.close_camera()
-        ffile = "PhotonFocus_"+str(depth)+"_"+str(size[current])+"x"+str(size[current])+".fmt"
+        ffile = os.path.join("formatFiles","PhotonFocus_"+str(depth)+"_"+str(size[current])+"x"+str(size[current])+".fmt")
 
         camera.open_camera(formatfile=ffile)
         self.livebutton.toggle()
@@ -992,9 +994,9 @@ class captureFrames(QtGui.QWidget):
 
     def createYaml(self):
 
-        microName = self.microSelections.currentText()
-        lightName = self.lightSelections.currentText()
-        objName = self.objectiveSelections.currentText()
+        microName = str(self.microSelections.currentText())
+        lightName = str(self.lightSelections.currentText())
+        objName = str(self.objectiveSelections.currentText())
 
         if self.tubeYes.checkState():
             tubestate = '1.5X'
