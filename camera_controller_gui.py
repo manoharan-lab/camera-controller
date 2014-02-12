@@ -51,8 +51,8 @@ import time
 import yaml
 import json
 
-#import epix_image_source as camera
-import dummy_image_source as camera
+import epix_image_source as camera
+#import dummy_image_source as camera
 from utility import mkdir_p
 from QtConvenience import (make_label, make_HBox, make_VBox, make_LineEdit,
                            make_button, make_control_group)
@@ -205,7 +205,7 @@ class captureFrames(QtGui.QWidget):
         self.bitdepthChoices.addItem("12bit")
         #self.bitdepthChoices.addItem("14bit")
         self.bitdepthChoices.setFixedWidth(150)
-        self.bitdepthChoices.setCurrentIndex(2)
+        self.bitdepthChoices.setCurrentIndex(0)
         self.bitdepthChoices.activated[str].connect(self.changeROISize)
         #self.bitdepth.activated[str].connect(self.changeROISize)
 

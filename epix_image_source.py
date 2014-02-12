@@ -26,13 +26,13 @@ Higher Level interface to the epix framegrabber
 """
 from ctypes import c_ubyte, windll, sizeof
 import numpy as np
-
+import os.path
 
 epix = windll.LoadLibrary("C:\Program Files\EPIX\XCLIB\XCLIBW64.dll")
 
 def open_camera(formatfile=None):
     if formatfile is None:
-        formatfile = "PhotonFocus_8bit_1024x1024.fmt"
+        formatfile = os.path.join("formatFiles","PhotonFocus_8bit_1024x1024.fmt")
     #format file stored here: C:\Users\Public\Documents\EPIX
     i = epix.pxd_PIXCIopen("","",formatfile) #standard NTSC
     if i == 0:
@@ -55,8 +55,10 @@ def close_camera():
         print("Closing the frame grabber failed with error code "+str(i))
 
 def get_image():
+    most_recent_buffer = epix.pxd_capturedBuffer(1)
     xdim = epix.pxd_imageXdim()
     ydim = epix.pxd_imageYdim()
+    print xdim, ydim
 
     imagesize = xdim*ydim
 
