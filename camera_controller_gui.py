@@ -36,7 +36,7 @@ and for timing long, slow time series captures.
 
 .. moduleauthor:: Rebecca W. Perry <perry.becca@gmail.com>
 .. moduleauthor:: Aaron Goldfain
-.. moduleauthor:: Thomas G. Dimiduk
+.. moduleauthor:: Thomas G. Dimiduk <tom@dimiduk.net>
 '''
 #from __future__ import print_function
 
@@ -52,8 +52,14 @@ import time
 import yaml
 import json
 
-import epix_image_source as camera
-#import dummy_image_source as camera
+import dummy_image_source
+try:
+    import epix_image_source
+    epix_available = True
+except ImportError:
+    epix_image_source = None
+    epix_available = False
+
 from utility import mkdir_p
 from QtConvenience import (make_label, make_HBox, make_VBox, make_LineEdit,
                            make_button, make_control_group)
@@ -69,13 +75,20 @@ from QtConvenience import (make_label, make_HBox, make_VBox, make_LineEdit,
 #TODO: start slow time series by capturing an image, and start that as t=0
 #TODO: add light source tab
 
+
+
 class captureFrames(QtGui.QWidget):
     '''
     Fill rolling buffer, then save individual frames or time series on command.
     '''
-    camera.open_camera()
 
     def __init__(self):
+        if epix_available:
+            self.camera = epix_image_source
+        else:
+            self.camera = dummy_image_source
+        self.camera.open_camera()
+
         super(captureFrames, self).__init__()
         self.initUI()
         QtGui.QShortcut(QtGui.QKeySequence("Ctrl+Q"), self, self.close)
@@ -190,9 +203,11 @@ class captureFrames(QtGui.QWidget):
 
         self.cameraChoices = QtGui.QComboBox()
         self.cameraChoices.addItem("Simulated")
-        self.cameraChoices.addItem("Photon Focus")
-        self.cameraChoices.setCurrentIndex(1)
+        if epix_available:
+            self.cameraChoices.addItem("Photon Focus")
+            self.cameraChoices.setCurrentIndex(1)
         self.cameraChoices.setFixedWidth(150)
+        self.cameraChoices.activated[str].connect(self.change_camera)
         #self.bitdepth.activated[str].connect(self.changeROISize)
 
         bit = QtGui.QLabel()
@@ -439,9 +454,9 @@ class captureFrames(QtGui.QWidget):
         self.microSelections.setFixedWidth(250)
         self.microSelections.addItem("Uberscope")
         self.microSelections.addItem("Mgruberscope")
-        self.microSelections.addItem("George")    
-        self.microSelections.addItem("Superscope")    
-        self.microSelections.addItem("Other: (edit to specify)")    
+        self.microSelections.addItem("George")
+        self.microSelections.addItem("Superscope")
+        self.microSelections.addItem("Other: (edit to specify)")
 
         lightLabel = QtGui.QLabel()
         lightLabel.setFixedHeight(30)
@@ -481,7 +496,7 @@ class captureFrames(QtGui.QWidget):
         hbox.addWidget(tubeLensLabel)
         hbox.addWidget(self.tubeYes)
         hbox.addStretch(1)
-        
+
         notesLabel = QtGui.QLabel()
         notesLabel.setFixedHeight(30)
         notesLabel.setAlignment(QtCore.Qt.AlignBottom)
@@ -692,8 +707,8 @@ class captureFrames(QtGui.QWidget):
         #print time.time()
         #obtain most recent image
 
-        frame_number = camera.get_frame_number()
-        self.pfim = camera.get_image()
+        frame_number = self.camera.get_frame_number()
+        self.pfim = self.camera.get_image()
         self.im = toimage(self.pfim) #PIL image
 
         self.numOfRows = np.shape(self.im)[0]
@@ -723,7 +738,7 @@ class captureFrames(QtGui.QWidget):
 
         #check if a time series to save has been finished collecting:
         if self.timeseries.isChecked():
-            if camera.finished_live_sequence():
+            if self.camera.finished_live_sequence():
                 time.sleep(0.1)
                 set_imageinfo()
                 self.freeze.toggle()
@@ -783,7 +798,7 @@ class captureFrames(QtGui.QWidget):
         for i in range(1,numOfFrames+1):
             if series == True:
                 #get each image
-                selectedFrame = camera.frameToArray(i)
+                selectedFrame = self.camera.frameToArray(i)
                 selectedFrame = toimage(selectedFrame) #PIL image
                 usersfilename = self.filename
 
@@ -854,17 +869,17 @@ class captureFrames(QtGui.QWidget):
         Rolling repeating frame buffer.
         '''
         if self.livebutton.isChecked():
-            camera.start_continuous_capture()
+            self.camera.start_continuous_capture()
         else:
             #on selecting "Freeze":
-            camera.stop_live_capture()
+            self.camera.stop_live_capture()
 
 
     def collectTimeSeries(self):
         #both the fast and slow varieties
         if self.timeseries.isChecked():#fast
             numberOfImages = int(self.numOfFrames.text())
-            camera.start_sequence_capture(numberOfImages)
+            self.camera.start_sequence_capture(numberOfImages)
 
         if self.timeseries_slow.isChecked():
             #set flags to be referenced by  event handler
@@ -979,12 +994,18 @@ class captureFrames(QtGui.QWidget):
         self.numOfRows = size[current]
         self.numOfCols = size[current]
         self.image = np.random.random([self.numOfRows, self.numOfCols])*100
-        camera.close_camera()
+        self.camera.close_camera()
         ffile = os.path.join("formatFiles","PhotonFocus_"+str(depth)+"_"+str(size[current])+"x"+str(size[current])+".fmt")
 
-        camera.open_camera(formatfile=ffile)
+        self.camera.open_camera(formatfile=ffile)
         self.livebutton.toggle()
         self.live()
+
+    def change_camera(self, camera_str):
+        if camera_str == "Photon Focus":
+            self.camera = epix_image_source
+        if camera_str == "Simulate":
+            self.camera = dummy_image_source
 
     def setROIx(self, x_pos):
         print('The ROI x-coordinate must be set to ', str(x_pos))
@@ -1034,7 +1055,7 @@ class captureFrames(QtGui.QWidget):
             self.freeze.setChecked(True)
             self.live()
             status = 'return to live'
-        
+
         directory = QtGui.QFileDialog.getExistingDirectory(
             self, "Choose a directory to save your data in", ".")
         self.typingspace.setText(directory)
