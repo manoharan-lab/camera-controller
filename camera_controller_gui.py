@@ -54,10 +54,10 @@ import json
 
 import dummy_image_source
 try:
-    import epix_image_source
+    import epix_framegrabber
     epix_available = True
 except ImportError:
-    epix_image_source = None
+    epix_framegrabber = None
     epix_available = False
 
 from utility import mkdir_p
@@ -84,10 +84,12 @@ class captureFrames(QtGui.QWidget):
 
     def __init__(self):
         if epix_available:
-            self.camera = epix_image_source
+            self.camera = epix_framegrabber.PhotonFocusCamera()
         else:
-            self.camera = dummy_image_source
-        self.camera.open_camera()
+            self.camera = dummy_image_source.DummyCamera()
+        self.bit_depth = 12
+        self.roi_shape = (1024, 1024)
+        self.camera.open(self.bit_depth, self.roi_shape)
 
         super(captureFrames, self).__init__()
         self.initUI()
@@ -100,9 +102,7 @@ class captureFrames(QtGui.QWidget):
         #Timer is for updating for image display and text to user
         self.timerid = self.startTimer(30)  # event every x ms
 
-        self.numOfCols = 1024
-        self.numOfRows = 1024
-        self.image = np.random.random([self.numOfRows, self.numOfCols])*100
+        self.image = np.random.random(self.roi_shape)*100
         self.cameraNum = 0  # to keep track of which camera is in use
 
         #display for image coming from camera
@@ -208,7 +208,7 @@ class captureFrames(QtGui.QWidget):
             self.cameraChoices.setCurrentIndex(1)
         self.cameraChoices.setFixedWidth(150)
         self.cameraChoices.activated[str].connect(self.change_camera)
-        #self.bitdepth.activated[str].connect(self.changeROISize)
+        #self.bitdepth.activated[str].connect(self.reopen_camera)
 
         bit = QtGui.QLabel()
         bit.setFixedHeight(30)
@@ -217,14 +217,14 @@ class captureFrames(QtGui.QWidget):
         bit.setStyleSheet('font-weight:bold')
 
         self.bitdepthChoices = QtGui.QComboBox()
-        self.bitdepthChoices.addItem("8bit")
-        self.bitdepthChoices.addItem("10bit")
-        self.bitdepthChoices.addItem("12bit")
-        #self.bitdepthChoices.addItem("14bit")
+        self.bitdepthChoices.addItem("8 bit")
+        self.bitdepthChoices.addItem("10 bit")
+        self.bitdepthChoices.addItem("12 bit")
+        #self.bitdepthChoices.addItem("14 bit")
         self.bitdepthChoices.setFixedWidth(150)
-        self.bitdepthChoices.setCurrentIndex(0)
-        self.bitdepthChoices.activated[str].connect(self.changeROISize)
-        #self.bitdepth.activated[str].connect(self.changeROISize)
+        self.bitdepthChoices.setCurrentIndex(2)
+        self.bitdepthChoices.activated[str].connect(self.reopen_camera)
+        #self.bitdepth.activated[str].connect(self.reopen_camera)
 
         roititle = QtGui.QLabel()
         roititle.setText('Frame size in pixels. Default to maximum size.\nRegions are taken from top left.')
@@ -245,7 +245,7 @@ class captureFrames(QtGui.QWidget):
         self.roiSizeChoices.addItem("128 x 128")
         self.roiSizeChoices.addItem("64 x 64")
         self.roiSizeChoices.setFixedWidth(150)
-        self.roiSizeChoices.activated[str].connect(self.changeROISize)
+        self.roiSizeChoices.activated[str].connect(self.reopen_camera)
 
         roiLocLabel = QtGui.QLabel()
         roiLocLabel.setFixedHeight(45)
@@ -711,8 +711,7 @@ class captureFrames(QtGui.QWidget):
         self.pfim = self.camera.get_image()
         self.im = toimage(self.pfim) #PIL image
 
-        self.numOfRows = np.shape(self.im)[0]
-        self.numOfCols = np.shape(self.im)[1]
+        self.roi_shape = np.shape(self.im)
 
         #show most recent image
         self.showImage()
@@ -896,10 +895,12 @@ class captureFrames(QtGui.QWidget):
         if self.background_image is not None:
             im = np.true_divide(im, self.background_image)
             im = (im * 255.0/im.max()).astype('uint8')
+        elif self.bit_depth > 8:
+            im = im // 2**(self.bit_depth-8)
         im = Image.fromarray(im)
         data = im.convert("RGBA").tostring('raw', "RGBA")
 
-        qim = QtGui.QImage(data, self.numOfRows, self.numOfCols, QtGui.QImage.Format_ARGB32)
+        qim = QtGui.QImage(data, self.roi_shape[0], self.roi_shape[1], QtGui.QImage.Format_ARGB32)
         pixmap = QtGui.QPixmap.fromImage(qim)
 
         myScaledPixmap = pixmap.scaled(QtCore.QSize(750,750))
@@ -987,25 +988,22 @@ class captureFrames(QtGui.QWidget):
         self.typingspace.setText("C:/Users/manoharanlab/data/[YOUR NAME]")
 
 
-    def changeROISize(self, size_str):
-        size = [1024,512,256,128,64]
-        current = self.roiSizeChoices.currentIndex()
-        depth = self.bitdepthChoices.currentText()
-        self.numOfRows = size[current]
-        self.numOfCols = size[current]
-        self.image = np.random.random([self.numOfRows, self.numOfCols])*100
-        self.camera.close_camera()
-        ffile = os.path.join("formatFiles","PhotonFocus_"+str(depth)+"_"+str(size[current])+"x"+str(size[current])+".fmt")
+    def reopen_camera(self, size_str):
+        self.roi_shape = [int(i) for i in
+                      str(self.roiSizeChoices.currentText()).split(' x ')]
+        self.bit_depth = int(str(self.bitdepthChoices.currentText()).split()[0])
 
-        self.camera.open_camera(formatfile=ffile)
+        self.camera.open(self.bit_depth, self.roi_shape)
+
         self.livebutton.toggle()
         self.live()
 
     def change_camera(self, camera_str):
+        self.camera.close()
         if camera_str == "Photon Focus":
-            self.camera = epix_image_source
+            self.camera = epix_framegrabber.PhotonFocusCamera()
         if camera_str == "Simulate":
-            self.camera = dummy_image_source
+            self.camera = dummy_image_source.DummyCamera()
 
     def setROIx(self, x_pos):
         print('The ROI x-coordinate must be set to ', str(x_pos))

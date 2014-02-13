@@ -30,35 +30,48 @@ lastimage = (np.random.random((1024,1024))*256).astype('int')
 frame_number = 1
 stop_frame = np.Inf
 
-def open_camera(format=None):
-    pass
+class DummyCamera(object):
+    def __init__(self):
+        self.bit_depth = None
+        self.roi_shape = None
+        self.live = True
+        self.lastimage = None
+        self.frame_number = 1
+        self.stop_frame = np.Inf
+        pass
 
-def close_camera():
-    pass
+    def open(self, bit_depth=12, roi_shape=1024):
+        self.bit_depth = bit_depth
+        self.roi_shape = roi_shape
+        pass
 
-def get_image():
-    global lastimage, live, frame_number, stop_frame
-    if live and frame_number < stop_frame:
-        lastimage = (np.random.random((1024,1024))*256).astype('uint8')
-        frame_number += 1
-    return lastimage
+    def close(self):
+        pass
 
-def get_frame_number():
-    global frame_number
-    return frame_number
+    def get_image(self):
+        if self.bit_depth == 8:
+            dtype = 'uint8'
+        else:
+            dtype = 'int16'
+        if self.live and self.frame_number < self.stop_frame:
+            random = np.random.random(self.roi_shape)
+            self.lastimage = (random * (2**self.bit_depth)).astype(dtype)
 
-def start_continuous_capture():
-    global live, frame_number, stop_frame
-    frame_number = 1
-    live = True
-    stop_frame = np.inf
+            self.frame_number += 1
+        return self.lastimage
 
-def start_sequence_capture(n_frames):
-    global live, frame_number, stop_frame
-    frame_number = 1
-    live = True
-    stop_frame = n_frames+1
+    def get_frame_number(self):
+        return self.frame_number
 
-def stop_live_capture():
-    global live
-    live = False
+    def start_continuous_capture(self):
+        self.frame_number = 1
+        self.live = True
+        self.stop_frame = np.inf
+
+    def start_sequence_capture(self, n_frames):
+        self.frame_number = 1
+        self.live = True
+        self.stop_frame = n_frames+1
+
+    def stop_live_capture(self):
+        self.live = False
