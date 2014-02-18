@@ -1,12 +1,11 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-# Copyright 2011-2013, Vinothan N. Manoharan, Thomas G. Dimiduk,
-# Rebecca W. Perry, Jerome Fung, and Ryan McGorty, Anna Wang
+# Copyright 2014, Thomas G. Dimiduk, Rebecca W. Perry, Aaron Goldfain
 #
-# This file is part of HoloPy.
+# This file is part of Camera Controller
 #
-# HoloPy is free software: you can redistribute it and/or modify
+# Camera Controller is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
@@ -73,14 +72,12 @@ class PhotonFocusCamera(object):
         else:
             return
 
-    def _correct_image_dtype(self, im):
-        if self.bit_depth > 8:
-            dtype = 'int16'
-        else:
-            dtype = 'uint8'
 
-    def get_image(self):
-        most_recent_buffer = epix.pxd_capturedBuffer(1)
+    def get_image(self, buffer_number=None):
+        if buffer_number is None:
+            buffer_number = epix.pxd_capturedBuffer(1)
+        # TODO: can we use the locally stored values for these? Or is
+        # there some subtle way that will lead us astray?
         xdim = epix.pxd_imageXdim()
         ydim = epix.pxd_imageYdim()
 
@@ -89,9 +86,10 @@ class PhotonFocusCamera(object):
         c_buf = (c_ubyte * imagesize)(0)
         c_buf_size = sizeof(c_buf)
 
-        epix.pxd_readuchar(0x1,most_recent_buffer,0,0,-1,ydim, c_buf, c_buf_size, "Gray")
-        return self._correct_image_dtype(
-            np.frombuffer(c_buf, c_ubyte).reshape([xdim, ydim]))
+        epix.pxd_readuchar(0x1, buffer_number, 0, 0, -1, ydim, c_buf,
+                           c_buf_size, "Gray")
+
+        return np.frombuffer(c_buf, c_ubyte).reshape([xdim, ydim])
 
     def get_frame_number(self):
         return epix.pxd_capturedBuffer(1)-1

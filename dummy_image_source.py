@@ -1,12 +1,11 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-# Copyright 2011-2013, Vinothan N. Manoharan, Thomas G. Dimiduk,
-# Rebecca W. Perry, Jerome Fung, and Ryan McGorty, Anna Wang
+# Copyright 2014, Thomas G. Dimiduk, Rebecca W. Perry, Aaron Goldfain
 #
-# This file is part of HoloPy.
+# This file is part of Camera Controller
 #
-# HoloPy is free software: you can redistribute it and/or modify
+# Camera Controller is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
@@ -48,7 +47,8 @@ class DummyCamera(object):
     def close(self):
         pass
 
-    def get_image(self):
+    def get_image(self, buffer_number=None):
+        # Note, ignores buffer number for now
         if self.bit_depth == 8:
             dtype = 'uint8'
         else:

@@ -1,12 +1,11 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-# Copyright 2011-2013, Vinothan N. Manoharan, Thomas G. Dimiduk,
-# Rebecca W. Perry, Jerome Fung, and Ryan McGorty, Anna Wang
+# Copyright 2014, Thomas G. Dimiduk, Rebecca W. Perry, Aaron Goldfain
 #
-# This file is part of HoloPy.
+# This file is part of Camera Controller
 #
-# HoloPy is free software: you can redistribute it and/or modify
+# Camera Controller is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
@@ -74,8 +73,6 @@ from QtConvenience import (make_label, make_HBox, make_VBox, make_LineEdit,
 #TODO: make sure that in a time series, the images stop getting collected at the end of the time series-- no overwriting the beginning of the buffer
 #TODO: start slow time series by capturing an image, and start that as t=0
 #TODO: add light source tab
-
-
 
 class captureFrames(QtGui.QWidget):
     '''
@@ -708,17 +705,16 @@ class captureFrames(QtGui.QWidget):
         #obtain most recent image
 
         frame_number = self.camera.get_frame_number()
-        self.pfim = self.camera.get_image()
-        self.im = toimage(self.pfim) #PIL image
+        self.image = self.camera.get_image()
 
-        self.roi_shape = np.shape(self.im)
+        self.roi_shape = np.shape(self.image)
 
         #show most recent image
         self.showImage()
 
         #show info about this image
-        def set_imageinfo(maxval=self.pfim.max(), frame_number=frame_number):
-            portion = round(np.sum(self.pfim == maxval)/(1.0*np.size(self.pfim)),3)
+        def set_imageinfo(maxval=self.image.max(), frame_number=frame_number):
+            portion = round(np.sum(self.image == maxval)/(1.0*np.size(self.image)),3)
             self.imageinfo.setText(
                 'Max pixel value: {}, Fraction at max: {}, Frame number in buffer: {}'.format(maxval, portion, frame_number))
 
@@ -797,7 +793,7 @@ class captureFrames(QtGui.QWidget):
         for i in range(1,numOfFrames+1):
             if series == True:
                 #get each image
-                selectedFrame = self.camera.frameToArray(i)
+                selectedFrame = self.camera.get_frame(i)
                 selectedFrame = toimage(selectedFrame) #PIL image
                 usersfilename = self.filename
 
@@ -887,11 +883,10 @@ class captureFrames(QtGui.QWidget):
             self.imageCounter = 0
 
     def showImage(self):
-        #self.im = toimage(self.image) #PIL image
         #https://github.com/shuge/Enjoy-Qt-Python-Binding/blob/master/image/display_img/pil_to_qpixmap.py
         #myQtImage = ImageQt(im)
         #qimage = QtGui.QImage(myQtImage)
-        im = self.pfim
+        im = self.image
         if self.background_image is not None:
             im = np.true_divide(im, self.background_image)
             im = (im * 255.0/im.max()).astype('uint8')
