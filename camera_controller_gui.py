@@ -125,7 +125,7 @@ class captureFrames(QtGui.QWidget):
         self.timeseries.setStyleSheet("QPushButton:checked {background-color: green} QPushButton:pressed {background-color: green}")
         self.timeseries.setCheckable(True)
 
-        self.timeseries_slow = make_button('Collect and Save\nSlow Time Series',
+        self.timeseries_slow = make_button('Collect and Save\nSlow Time Series (<= 1 fps)',
                                            self.collectTimeSeries, self, QtGui.QKeySequence('f4'), width=200)
         self.timeseries_slow.setStyleSheet("QPushButton:checked {background-color: green} QPushButton:pressed {background-color: green}")
         self.timeseries_slow.setCheckable(True)
@@ -185,6 +185,7 @@ class captureFrames(QtGui.QWidget):
 
         ###################################################################
         # Tab 2, camera settings need to be set in Photon Focus remote too
+
         ###################################################################
 
         tab2title = QtGui.QLabel()
@@ -759,7 +760,6 @@ class captureFrames(QtGui.QWidget):
         '''
 
         # img is true if saving an image, false if saving a yaml file
-
         if img and series and self.numberincrement.isChecked(): #include number
             self.keynumber.setText(str(0).zfill(4))
             self.createFilename()
@@ -840,6 +840,7 @@ class captureFrames(QtGui.QWidget):
                             self.keynumber.setText(str(int(0)).zfill(4))
                             self.keynumberdir.setText(str((int(self.keynumberdir.text())+ 1)).zfill(2))
                         self.createFilename()
+                        self.timeseries.setChecked(False)
                 if slowseries:
                     if self.lastimageflag == True:
                         self.livebutton.toggle()
