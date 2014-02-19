@@ -23,7 +23,7 @@ Higher Level interface to the epix framegrabber
 .. moduleauthor:: Thomas G. Dimiduk <tom@dimiduk.net>
 .. moduleauthor:: Rebecca W. Perry <perry.becca@gmail.com>
 """
-from ctypes import c_ubyte, windll, sizeof
+from ctypes import c_ubyte, windll, sizeof, c_ushort
 import numpy as np
 import os.path
 
@@ -41,7 +41,7 @@ class PhotonFocusCamera(object):
             self.close()
 
         self.bit_depth = bit_depth
-        self.roi_shape = roi_size
+        self.roi_shape = roi_shape
 
         filename = "PhotonFocus_{0}bit_{1}x{2}.fmt".format(self.bit_depth,
                                                            *self.roi_shape)
@@ -82,13 +82,21 @@ class PhotonFocusCamera(object):
 
         imagesize = xdim*ydim
 
-        c_buf = (c_ubyte * imagesize)(0)
+        if self.bit_depth > 8:
+            c_type = c_ushort
+            cam_read = epix.pxd_readushort
+            dtype = 'int16'
+        else:
+            c_type = c_ubyte
+            cam_read = epix.pxd_readuchar
+            dtype = 'uint8'
+        c_buf = (c_type * imagesize)(0)
         c_buf_size = sizeof(c_buf)
 
-        epix.pxd_readuchar(0x1, buffer_number, 0, 0, -1, ydim, c_buf,
+        cam_read(0x1, buffer_number, 0, 0, -1, ydim, c_buf,
                            c_buf_size, "Gray")
 
-        return np.frombuffer(c_buf, c_ubyte).reshape([xdim, ydim])
+        return np.frombuffer(c_buf, c_type).reshape([xdim, ydim]).astype(dtype)
 
     def get_frame_number(self):
         return epix.pxd_capturedBuffer(1)-1
