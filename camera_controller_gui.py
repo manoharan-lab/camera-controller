@@ -780,7 +780,7 @@ class captureFrames(QtGui.QWidget):
             fname = tempname[:-n_filetype] +'yaml'
 
         #grab image for saving
-        selectedFrame = self.im
+        selectedFrame = Image.fromarray(self.image)
 
         usersfilename = fname
 
@@ -959,6 +959,8 @@ class captureFrames(QtGui.QWidget):
         if os.path.isfile(self.filename):
             self.path.setText('DANGER: SET TO OVERWRITE DATA, CHANGE FILENAME')
 
+    def make_filename(self):
+        pass
 
 
     def resetSavingOptions(self):
