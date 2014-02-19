@@ -75,3 +75,6 @@ class DummyCamera(object):
 
     def stop_live_capture(self):
         self.live = False
+
+    def finished_live_sequence(self):
+        return self.frame_number >= self.stop_frame

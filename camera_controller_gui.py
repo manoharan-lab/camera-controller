@@ -793,7 +793,7 @@ class captureFrames(QtGui.QWidget):
         for i in range(1,numOfFrames+1):
             if series == True:
                 #get each image
-                selectedFrame = self.camera.get_frame(i)
+                selectedFrame = self.camera.get_image(i)
                 selectedFrame = toimage(selectedFrame) #PIL image
                 usersfilename = self.filename
 

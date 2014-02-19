@@ -72,7 +72,6 @@ class PhotonFocusCamera(object):
         else:
             return
 
-
     def get_image(self, buffer_number=None):
         if buffer_number is None:
             buffer_number = epix.pxd_capturedBuffer(1)
