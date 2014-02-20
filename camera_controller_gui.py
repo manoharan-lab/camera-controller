@@ -60,8 +60,10 @@ except ImportError:
     epix_available = False
 
 from utility import mkdir_p
-from QtConvenience import (make_label, make_HBox, make_VBox, make_LineEdit,
-                           make_button, make_control_group)
+from QtConvenience import (make_label, make_HBox, make_VBox,
+                           make_LineEdit, make_button,
+                           make_control_group, make_checkbox,
+                           CheckboxGatedValue)
 
 
 #TODO: construct format file outside of the image grabbing loop, only
@@ -90,7 +92,10 @@ class captureFrames(QtGui.QWidget):
 
         super(captureFrames, self).__init__()
         self.initUI()
+        # we have to set this text after the internals are initialized since the filename is constructed from widget values
+        self.createFilename()
         QtGui.QShortcut(QtGui.QKeySequence("Ctrl+Q"), self, self.close)
+
 
     def initUI(self):
 
@@ -135,10 +140,10 @@ class captureFrames(QtGui.QWidget):
         #TODO: fix control group, should you be allowed to do multiple at once?
         #make_control_group(self, [self.save, self.timeseries, self.timeseries_slow])
 
-        self.numOfFrames = make_LineEdit(75, '10')
+        self.numOfFrames = make_LineEdit('10', width=75)
 
-        self.numOfFrames2 = make_LineEdit(75, '10')
-        self.interval = make_LineEdit(75, '0.5')
+        self.numOfFrames2 = make_LineEdit('10', width=75)
+        self.interval = make_LineEdit('0.5', width=75)
 
         self.applybackground = make_button('Apply Background',
                                            self.select_background, self, width=200)
@@ -153,10 +158,7 @@ class captureFrames(QtGui.QWidget):
         self.outfiletitle.setWordWrap(True)
         self.outfiletitle.setStyleSheet('font-weight:bold')
 
-        self.filename = str('placeholder')
-
         self.path = QtGui.QLabel()
-        self.path.setText(self.filename)
 
         tab1 = QtGui.QWidget()
 
@@ -179,7 +181,7 @@ class captureFrames(QtGui.QWidget):
                    self.applybackground,
                    self.background_image_filename,
                    self.outfiletitle,
-                   self.path,1],
+                   self.path, 1],
                   tab1)
 
 
@@ -266,167 +268,86 @@ class captureFrames(QtGui.QWidget):
                   tab2)
 
 
+
         #########################################
         # Tab 3, Options for saving output files
         #########################################
 
         tab3 = QtGui.QWidget()
-        tab3_layout = QtGui.QVBoxLayout(tab3)
 
-        self.outfile = QtGui.QLabel()
-        self.outfile.setFixedHeight(50)
-        self.outfile.setAlignment(QtCore.Qt.AlignTop)
-
-        tab3title = QtGui.QLabel()
-        tab3title.setText('Select the output format of your images and set up automatically generated file names for saving images')
-        tab3title.setFixedHeight(50)
-        tab3title.setWordWrap(True)
-        tab3title.setAlignment(QtCore.Qt.AlignTop)
-        tab3_layout.addWidget(tab3title)
+        tab3title = make_label(
+            'Select the output format of your images and set up automatically '
+            'generated file names for saving images',
+            height=50, align='top')
 
         ###
-        fileTypeLabel = QtGui.QLabel()
-        fileTypeLabel.setFixedHeight(30)
-        fileTypeLabel.setAlignment(QtCore.Qt.AlignBottom)
-        fileTypeLabel.setText('Output File Format:')
-        fileTypeLabel.setStyleSheet('font-weight:bold')
+        fileTypeLabel = make_label('Output File Format:', bold=True, height=30,
+                                   align='bottom')
 
         self.outputformat = QtGui.QComboBox()
         self.outputformat.addItem(".tif")
         self.outputformat.setFixedWidth(150)
         self.outputformat.activated[str].connect(self.createFilename)
 
-        tab3_layout.addWidget(fileTypeLabel)
-        tab3_layout.addWidget(self.outputformat)
+        ###
+
+        self.include_filename_text = CheckboxGatedValue(
+            "Include this text:", make_LineEdit("image"), self.createFilename,
+            True)
+        self.include_current_date = CheckboxGatedValue(
+            "include date", lambda : time.strftime("%y_%m_%d_"))
+        self.include_current_time = CheckboxGatedValue(
+            "include time", lambda : time.strftime("%H_%M_%S"))
+        self.include_incrementing_image_num = CheckboxGatedValue(
+            "include an incrementing number, next is:", make_LineEdit('0000'),
+            self.createFilename, True)
+
 
         ###
-        fileLabel = QtGui.QLabel()
-        fileLabel.setFixedHeight(30)
-        fileLabel.setAlignment(QtCore.Qt.AlignBottom)
-        fileLabel.setText('File Name:')
-        fileLabel.setStyleSheet('font-weight:bold')
+        self.browse = make_button("Browse", self.select_directory, self,
+                                  height=30, width=100)
+        self.root_save_path = make_LineEdit("C:/Users/manoharanlab/data/[YOUR NAME]",
+                                            self.createFilename)
+        self.include_incrementing_dir_num = CheckboxGatedValue(
+            "include an incrementing number, next is:", make_LineEdit('00'),
+            self.createFilename, True)
+        self.include_extra_dir_text = CheckboxGatedValue(
+            "use the following text:", make_LineEdit(None), self.createFilename)
 
-        self.imageKeywordToggle = QtGui.QCheckBox()
-        self.imageKeywordToggle.setText("Include this text:")
-        self.imageKeywordToggle.toggle()
-        self.imageKeywordToggle.stateChanged.connect(self.createFilename)
-        self.imageKeyword = QtGui.QLineEdit()
-        self.imageKeyword.textChanged.connect(self.createFilename)
+        self.saveMetasYes = make_checkbox('Save metadata as yaml file when saving image?')
 
-        self.currentdatelabel = QtGui.QCheckBox()
-        self.currentdatelabel.setText("include date")
-        self.currentdatelabel.stateChanged.connect(self.createFilename)
-        self.current_date = time.strftime("%y_%m_%d_")
+        self.outfile = make_label("", height=50, align='top')
 
-        self.currenttimelabel = QtGui.QCheckBox()
-        self.currenttimelabel.setText("include time")
-        self.currenttimelabel.stateChanged.connect(self.createFilename)
-        self.current_time = time.strftime("%H_%M_%S")
-
-        self.numberincrement = QtGui.QCheckBox()
-        self.numberincrement.setText("include an incrementing number, next is:")
-        self.numberincrement.toggle()
-        self.numberincrement.stateChanged.connect(self.createFilename)
-        self.keynumber = QtGui.QLineEdit()
-        self.keynumber.textChanged.connect(self.createFilename)
-
-
-        hbox = QtGui.QHBoxLayout()
-        hbox.addWidget(self.imageKeywordToggle)
-        hbox.addWidget(self.imageKeyword)
-
-        hbox2 = QtGui.QHBoxLayout()
-        hbox2.addWidget(self.numberincrement)
-        hbox2.addWidget(self.keynumber)
-
-        tab3_layout.addWidget(fileLabel)
-        tab3_layout.addLayout(hbox)
-        tab3_layout.addWidget(self.currentdatelabel)
-        tab3_layout.addWidget(self.currenttimelabel)
-        tab3_layout.addLayout(hbox2)
-
-        ######
-
-        dirLabel = QtGui.QLabel()
-        dirLabel.setText('Directory:')
-        dirLabel.setStyleSheet('font-weight:bold')
-        dirLabel.setFixedHeight(40)
-        dirLabel.setAlignment(QtCore.Qt.AlignBottom)
-
-        self.browse = QtGui.QPushButton('Browse', self)
-        self.browse.setFixedHeight(30) #attribute from qwidget class
-        self.browse.setFixedWidth(100)
-        self.browse.clicked.connect(self.select_directory)
-
-        self.typingspace = QtGui.QLineEdit()
-        self.typingspace.textChanged.connect(self.createFilename)
-        #self.typingspace.setWordWrapMode(QtGui.QTextOption.WrapAnywhere)
-
-
-        self.numberincrementdir = QtGui.QCheckBox()
-        self.numberincrementdir.setText("include an incrementing number, next is:")
-        self.numberincrementdir.toggle()
-        self.numberincrementdir.stateChanged.connect(self.createFilename)
-        self.keynumberdir = QtGui.QLineEdit()
-        self.keynumberdir.textChanged.connect(self.createFilename)
-
-        hbox3 = QtGui.QHBoxLayout()
-        hbox3.addWidget(self.numberincrementdir)
-        hbox3.addWidget(self.keynumberdir)
-
-
-        self.keyworddir = QtGui.QCheckBox()
-        self.keyworddir.setText("use the following text:")
-        self.keyworddir.stateChanged.connect(self.createFilename)
-        self.keywordvaldir = QtGui.QLineEdit()
-        self.keywordvaldir.textChanged.connect(self.createFilename)
-
-        hbox4 = QtGui.QHBoxLayout()
-        hbox4.addWidget(self.keyworddir)
-        hbox4.addWidget(self.keywordvaldir)
-
-        self.resetSavingOptions() #should set file name
-
-        tab3_layout.addWidget(dirLabel)
-        tab3_layout.addWidget(self.browse)
-        tab3_layout.addWidget(self.typingspace)
-        tab3_layout.addLayout(hbox3)
-        tab3_layout.addLayout(hbox4)
-        hbox.addStretch(1)
-
-
-        yamlLabel = QtGui.QLabel()
-        yamlLabel.setFixedHeight(30)
-        yamlLabel.setAlignment(QtCore.Qt.AlignBottom)
-        yamlLabel.setText('Save metadata as yaml file when saving image?')
-        yamlLabel.setStyleSheet('font-weight:bold')
-
-        self.saveMetaYes = QtGui.QCheckBox()
-        self.saveMetaYes.setText("Yes")
-
-        tab3_layout.addWidget(yamlLabel)
-        tab3_layout.addWidget(self.saveMetaYes)
-
-        outfiletitle = QtGui.QLabel()
-        outfiletitle.setText('If you saved an image at the time you selected these settings, it would have been saved as:')
-        outfiletitle.setFixedHeight(50)
-        dirLabel.setAlignment(QtCore.Qt.AlignBottom)
-        outfiletitle.setWordWrap(True)
-        outfiletitle.setStyleSheet('font-weight:bold')
-
-        tab3_layout.addWidget(outfiletitle)
-        tab3_layout.addWidget(self.outfile)
-
-        tab3_layout.addStretch(1)
-
-        self.reset = QtGui.QPushButton('Reset to Default Values', self)
+        self.reset = make_button("Reset to Default values", self.resetSavingOptions, self, height=None, width=None)
         self.reset.setDefault(True)
-        self.reset.clicked.connect(self.resetSavingOptions)
 
-        tab3_layout.addWidget(self.reset)
+        self.path_example = make_label("")
+        tab3_layout = make_VBox([
+            tab3title,
+            fileTypeLabel,
+            self.outputformat,
+            make_label('File Name:', bold=True, align='bottom', height=30),
+            self.include_filename_text,
+            self.include_current_date,
+            self.include_current_time,
+            self.include_incrementing_image_num,
+            ######
+            make_label('Directory:', bold=True, height=30, align='bottom'),
+            self.browse,
+            self.root_save_path,
+            self.include_incrementing_dir_num,
+            self.include_extra_dir_text,
+            self.saveMetasYes,
+            make_label("If you save an image with these settings it will be saved as:", height=50, bold=True, align='bottom'),
+            self.path_example,
+            1,
+            self.reset
+        ], tab3)
 
-        self.resetSavingOptions()
-        self.typingspace.textChanged.connect(self.createFilename)
+
+        # TODO: make this function get its values from the defaults we give things
+#        self.resetSavingOptions() #should set file name
+
 
         ################################
         # Tab 4, place to enter metadata
@@ -740,6 +661,18 @@ class captureFrames(QtGui.QWidget):
                 self.freeze.toggle()
                 self.saveImageOrYaml(True, True)
 
+    @property
+    def filename(self):
+        root = str(self.root_save_path.text())
+        dirextra = "".join([self.include_incrementing_dir_num.text(),
+                            self.include_extra_dir_text.text()])
+        filename = "".join([self.include_current_date.text(),
+                            self.include_current_time.text(),
+                            self.include_filename_text.text(),
+                            self.include_incrementing_image_num.text(),
+                            '.tif'])
+        return os.path.join(*[a for a in [root, dirextra, filename] if a])
+
     def saveImage(self):
         self.saveImageOrYaml(True)
 
@@ -760,7 +693,7 @@ class captureFrames(QtGui.QWidget):
         '''
 
         # img is true if saving an image, false if saving a yaml file
-        if img and series and self.numberincrement.isChecked(): #include number
+        if img and series and self.include_incrementing_image_num.isChecked(): #include number
             self.keynumber.setText(str(0).zfill(4))
             self.createFilename()
 
@@ -825,7 +758,7 @@ class captureFrames(QtGui.QWidget):
 
                 #saving was successful, advance the incrementers if they are being used
                 #numbered file, increment if checked and if saving an image
-                if img and self.numberincrement.isChecked(): #include number
+                if img and self.include_incrementing_image_num.isChecked(): #include number
                     int(self.keynumber.text()) + 1
                     self.keynumber.setText(str((int(self.keynumber.text())+ 1)).zfill(4))
                 self.createFilename()
@@ -834,7 +767,7 @@ class captureFrames(QtGui.QWidget):
                     if series == False or i == numOfFrames:
                         #only increment the directory if done with this series
                         #numbered directory, increment if checked
-                        if img and self.numberincrementdir.isChecked():
+                        if img and self.include_incrementing_dir_num.isChecked():
                             int(self.keynumberdir.text())+1
                             #automatically sets first image number back to zero
                             self.keynumber.setText(str(int(0)).zfill(4))
@@ -845,7 +778,7 @@ class captureFrames(QtGui.QWidget):
                     if self.lastimageflag == True:
                         self.livebutton.toggle()
                         #only increment the directory if done with the series
-                        if img and self.numberincrementdir.isChecked():
+                        if img and self.include_incrementing_dir_num.isChecked():
                             int(self.keynumberdir.text())+1
                             #automatically sets first image number back to zero
                             self.keynumber.setText(str(int(0)).zfill(4))
@@ -904,86 +837,34 @@ class captureFrames(QtGui.QWidget):
         self.frame.setPixmap(myScaledPixmap)
 
     def createFilename(self):
-        self.filename = str(self.typingspace.text()) #directory name
-        self.filename += r"//" #linux
-        #self.filename += r"\\" #windows
-        self.filename = self.filename[0:-1]
-
-        #include an incrementing number
-        if self.numberincrementdir.isChecked() and self.keyworddir.isChecked():
-            self.filename += str(self.keynumberdir.text())
-            self.filename += str(self.keywordvaldir.text())
-            self.filename += r"//" #linux
-            #self.filename += r"\\" #windows
-            self.filename = self.filename[0:-1]
-
-        #include text
-        elif self.numberincrementdir.isChecked():
-            self.filename += str(self.keynumberdir.text())
-            self.filename += r"//" #linux
-            #self.filename += r"\\" #windows
-            self.filename = self.filename[0:-1]
-
-        #include text
-        elif self.keyworddir.isChecked():
-            self.filename += str(self.keywordvaldir.text())
-            self.filename += r"//" #linux
-            #self.filename += r"\\" #windows
-            self.filename = self.filename[0:-1]
-
-        #include date
-        if self.currentdatelabel.isChecked():
-            self.current_date = time.strftime("%y%m%d")
-            self.filename += self.current_date
-
-        #include time
-        if self.currenttimelabel.isChecked():
-            self.current_time = time.strftime("%H%M%S")
-            self.filename += self.current_time
-
-        #include keyword
-        if self.imageKeywordToggle.isChecked():
-            self.filename += str(self.imageKeyword.text())
-
-        #include number
-        if self.numberincrement.isChecked(): #include number
-            self.filename += str(self.keynumber.text())
-
-        #finish with the the file format
-        if self.outputformat.currentText() == ".tif": #include number
-            self.filename += ".tif"
-
         #update QLabel with example filename
-        self.outfile.setText(self.filename)
         self.path.setText(self.filename)
+        self.path_example.setText(self.filename)
         if os.path.isfile(self.filename):
             self.path.setText('DANGER: SET TO OVERWRITE DATA, CHANGE FILENAME')
-
-    def make_filename(self):
-        pass
 
 
     def resetSavingOptions(self):
         self.outputformat.setCurrentIndex(0)
-        self.imageKeywordToggle.setCheckState(2)
-        self.imageKeyword.setText("image")
-        self.currentdatelabel.setCheckState(False)
-        self.currenttimelabel.setCheckState(False)
-        self.numberincrement.setCheckState(2)
-        self.keynumber.setText("0000")
-        self.numberincrementdir.setCheckState(2)
-        self.keynumberdir.setText("00")
-        #self.keywordvaldir.setText("")
-        self.keyworddir.setCheckState(0)
+        self.include_filename_text.setCheckState(2)
+        self.include_filename_text.setText("image")
+        self.include_current_date.setCheckState(False)
+        self.include_current_time.setCheckState(False)
+        self.include_incrementing_image_num.setCheckState(2)
+        self.include_incrementing_image_num.setText("0000")
+        self.include_incrementing_dir_num.setCheckState(2)
+        self.include_incrementing_dir_num.setText("00")
+        #self.include_extra_dir_text.setText("")
+        self.include_extra_dir_text.setCheckState(0)
 
         #rperry laptop default
-        #self.typingspace.setText("/home/rperry/Desktop/camera/images")
-        #self.typingspace.setText("/Home/Desktop/camera")
+        #self.root_save_path.setText("/home/rperry/Desktop/camera/images")
+        #self.root_save_path.setText("/Home/Desktop/camera")
 
         #Aaron default
-        #self.typingspace.setText("/home/agoldfain/Desktop")
+        #self.root_save_path.setText("/home/agoldfain/Desktop")
         #superscope default:
-        self.typingspace.setText("C:/Users/manoharanlab/data/[YOUR NAME]")
+        self.root_save_path.setText("C:/Users/manoharanlab/data/[YOUR NAME]")
 
 
     def reopen_camera(self, size_str):
@@ -1054,7 +935,7 @@ class captureFrames(QtGui.QWidget):
 
         directory = QtGui.QFileDialog.getExistingDirectory(
             self, "Choose a directory to save your data in", ".")
-        self.typingspace.setText(directory)
+        self.root_save_path.setText(directory)
 
         if status == 'return to live':
             self.livebutton.setChecked(True)
