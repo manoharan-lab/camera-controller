@@ -63,7 +63,8 @@ from utility import mkdir_p
 from QtConvenience import (make_label, make_HBox, make_VBox,
                            make_LineEdit, make_button,
                            make_control_group, make_checkbox,
-                           CheckboxGatedValue)
+                           CheckboxGatedValue, increment_textbox,
+                           zero_textbox, textbox_int, textbox_float)
 
 
 #TODO: construct format file outside of the image grabbing loop, only
@@ -93,7 +94,7 @@ class captureFrames(QtGui.QWidget):
         super(captureFrames, self).__init__()
         self.initUI()
         # we have to set this text after the internals are initialized since the filename is constructed from widget values
-        self.createFilename()
+        self.update_filename()
         QtGui.QShortcut(QtGui.QKeySequence("Ctrl+Q"), self, self.close)
 
 
@@ -120,10 +121,15 @@ class captureFrames(QtGui.QWidget):
         self.freeze = make_button('Freeze\nf2', self.live, self, QtGui.QKeySequence('f2'))
         self.freeze.setStyleSheet("QPushButton:checked {background-color: green} QPushButton:pressed {background-color: green}")
 
-        self.save = make_button('Save\nesc', self.saveImage, self, QtGui.QKeySequence('esc'), width=200,
-                                tooltip='Saves the frame that was current when this button was clicked. Freeze first if you want the frame to stay visible.')
+        self.save = make_button(
+            'Save\nesc', self.save_image, self, QtGui.QKeySequence('esc'), width=150,
+            tooltip='Saves the frame that was current when this button was clicked. Freeze first if you want the frame to stay visible.')
         self.save.setCheckable(True)
         self.save.setStyleSheet("QPushButton:checked {background-color: green} QPushButton:pressed {background-color: green}")
+
+        self.increment_dir_num = make_button(
+            'Increment dir number', self.next_directory, self, width=150,
+            tooltip='switch to the next numbered directory (if using numbered directories). Use this for example when switching to a new object')
 
         self.timeseries = make_button('Collect and Save\nTime Series',
                                       self.collectTimeSeries, self, QtGui.QKeySequence('f3'), width=200)
@@ -167,7 +173,7 @@ class captureFrames(QtGui.QWidget):
                    self.freeze,1]),
                    1,
                    'Save image showing when clicked',
-                   self.save,
+                   make_HBox([self.save, self.increment_dir_num]),
                    1,
                    'Store the requested number of images to the buffer and then save the files to hard disk. \n\nThe frame rate is set in the Photon Focus Remote software.',
                    make_HBox([self.timeseries, self.numOfFrames, 'frames', 1]),
@@ -287,12 +293,12 @@ class captureFrames(QtGui.QWidget):
         self.outputformat = QtGui.QComboBox()
         self.outputformat.addItem(".tif")
         self.outputformat.setFixedWidth(150)
-        self.outputformat.activated[str].connect(self.createFilename)
+        self.outputformat.activated[str].connect(self.update_filename)
 
         ###
 
         self.include_filename_text = CheckboxGatedValue(
-            "Include this text:", make_LineEdit("image"), self.createFilename,
+            "Include this text:", make_LineEdit("image"), self.update_filename,
             True)
         self.include_current_date = CheckboxGatedValue(
             "include date", lambda : time.strftime("%y_%m_%d_"))
@@ -300,19 +306,19 @@ class captureFrames(QtGui.QWidget):
             "include time", lambda : time.strftime("%H_%M_%S"))
         self.include_incrementing_image_num = CheckboxGatedValue(
             "include an incrementing number, next is:", make_LineEdit('0000'),
-            self.createFilename, True)
+            self.update_filename, True)
 
 
         ###
         self.browse = make_button("Browse", self.select_directory, self,
                                   height=30, width=100)
         self.root_save_path = make_LineEdit("C:/Users/manoharanlab/data/[YOUR NAME]",
-                                            self.createFilename)
+                                            self.update_filename)
         self.include_incrementing_dir_num = CheckboxGatedValue(
             "include an incrementing number, next is:", make_LineEdit('00'),
-            self.createFilename, True)
+            self.update_filename, True)
         self.include_extra_dir_text = CheckboxGatedValue(
-            "use the following text:", make_LineEdit(None), self.createFilename)
+            "use the following text:", make_LineEdit(None), self.update_filename)
 
         self.saveMetaYes = make_checkbox('Save metadata as yaml file when saving image?')
 
@@ -337,6 +343,7 @@ class captureFrames(QtGui.QWidget):
             self.root_save_path,
             self.include_incrementing_dir_num,
             self.include_extra_dir_text,
+            1,
             self.saveMetaYes,
             make_label("If you save an image with these settings it will be saved as:", height=50, bold=True, align='bottom'),
             self.path_example,
@@ -427,7 +434,7 @@ class captureFrames(QtGui.QWidget):
         self.saveMetaData = QtGui.QPushButton('Save Metadata To Yaml', self)
         self.saveMetaData.setFixedHeight(30) #attribute from qwidget class
         self.saveMetaData.setFixedWidth(200)
-        self.saveMetaData.clicked.connect(self.saveMetadata)
+        self.saveMetaData.clicked.connect(self.save_metadata)
 
         tab4_layout.addWidget(microLabel)
         tab4_layout.addWidget(self.microSelections)
@@ -645,16 +652,13 @@ class captureFrames(QtGui.QWidget):
 
         set_imageinfo()
 
-        #check if a slow time series was requested and if the current time is a time to be recorded
-        if self.timeseries_slow.isChecked() and self.lastimageflag == False:
-            currentmod = round(time.time(),0)%(round(float(str(self.interval.text()))*60,0))
-            if currentmod == 0 and self.lastmod !=0: #TODO: replace with actual interval between images
-                self.imageCounter +=1
-                if self.imageCounter == float(str(self.numOfFrames2.text())):
-                    self.lastimageflag = True
-                    self.timeseries_slow.setChecked(False)
-                self.saveImages()
-            self.lastmod = currentmod
+        if self.timeseries_slow.isChecked():
+            if (textbox_int(self.include_incrementing_image_num) *
+                textbox_float(self.interval) * 60) <= time.time():
+                self.save_image()
+            if textbox_int(self.include_incrementing_image_num) >= textbox_int(self.numOfFrames2):
+                self.timeseries_slow.setChecked(False)
+                self.next_directory()
 
         #check if a time series to save has been finished collecting:
         if self.timeseries.isChecked():
@@ -662,139 +666,72 @@ class captureFrames(QtGui.QWidget):
                 time.sleep(0.1)
                 set_imageinfo()
                 self.freeze.toggle()
-                self.saveImageOrYaml(True, True)
+                mkdir_p(self.save_directory)
+                for i in range(1, 1 + textbox_int(self.numOfFrames)):
+                    write_image(self.filename, self.camera.get_image(i))
+                    increment_textbox(self.include_incrementing_image_num)
+                self.timeseries.setChecked(False)
+
+
+    def save_series(self):
+        for i in range(1, 1 + textbox_int(self.numOfFrames)):
+            write_image(self.filename, self.camera.get_image(i))
+            increment_textbox(self.include_incrementing_image_num)
+
 
     @property
-    def filename(self):
+    def save_directory(self):
         root = str(self.root_save_path.text())
         dirextra = "".join([self.include_incrementing_dir_num.text(),
                             self.include_extra_dir_text.text()])
+        return os.path.join(*[a for a in [root, dirextra] if a])
+
+    @property
+    def base_filename(self):
         filename = "".join([self.include_current_date.text(),
                             self.include_current_time.text(),
                             self.include_filename_text.text(),
-                            self.include_incrementing_image_num.text(),
-                            '.tif'])
-        return os.path.join(*[a for a in [root, dirextra, filename] if a])
+                            self.include_incrementing_image_num.text()])
+        return os.path.join(self.save_directory, filename)
 
-    def saveImage(self):
-        self.saveImageOrYaml(True)
+    @property
+    def filename(self):
+        return self.base_filename + '.tif'
 
-    def saveImages(self):
-        self.saveImageOrYaml(True, False, True)
+    @property
+    def metadata_filename(self):
+        return self.base_filename + '.yaml'
 
-    def saveMetadata(self):
-        self.saveImageOrYaml(False)
-
-    def saveImageOrYaml(self, img, series = False, slowseries = False):
-        '''
-        For saving images and metadata to locations on hard disk. Autogenerates a suggested file name
-        based on the user's input in the "Saving" tab. User may also type in a
-        different name at this point. User will be asked to change name if the file
-        already exists.
-
-        Is not allowed to overwrite any files.
-        '''
-
-        # img is true if saving an image, false if saving a yaml file
-        if img and series and self.include_incrementing_image_num.isChecked(): #include number
-            self.include_incrementing_image_num.setText(str(0).zfill(4))
-            self.createFilename()
-
-        #Write yaml file
-        if img and self.saveMetaYes.checkState():
-            self.saveImageOrYaml(False)
-
-        savingcheck = QtGui.QInputDialog()
-
-        #get correct filename for yamls
-        if img:
-            fname = self.filename
-        else:
-            tempname = self.filename
-            filetype = tempname.split('.')[-1]
-            n_filetype = filetype.__len__()
-            fname = tempname[:-n_filetype] +'yaml'
-
-        #grab image for saving
-        selectedFrame = Image.fromarray(self.image)
-
-        usersfilename = fname
-
-        if series == False:
-            numOfFrames = 1
-        else:
-            #TODO: implement numOfFrames2
-            numOfFrames = int(str(self.numOfFrames.text()))
-
-        for i in range(1,numOfFrames+1):
-            if series == True:
-                #get each image
-                selectedFrame = self.camera.get_image(i)
-                selectedFrame = toimage(selectedFrame) #PIL image
-                usersfilename = self.filename
-
-            #TODO: move overwriting check elsewhere
-            '''#don't overwrite files
-            if os.path.isfile(str(usersfilename)):
-                directorywarning = QtGui.QMessageBox()
-                directorywarning.setWindowTitle('Filename Error')
-                directorywarning.setText('Overwriting data not allowed. Choose a different name or delete the item with the same name.')
-                ret = directorywarning.exec_()
-                self.saveImageOrYaml(img) #cycle back to try again
-
-            else:'''
-
-            directory, filename = os.path.split(str(usersfilename))
-
-            mkdir_p(directory)
-
-            if os.path.isdir(directory):
-                if img:#save image
-                    if usersfilename[-4:]== '.tif':
-                        selectedFrame.save(str(usersfilename), autoscale=False)
-                    else:
-                        selectedFrame.save(str(usersfilename), autoscale=False)
-                else:#write yaml
-                    data = self.createYaml()
-                    with open(str(usersfilename), 'w') as outfile:
-                        outfile.write( yaml.dump(data, default_flow_style=True) )
-
-                #saving was successful, advance the incrementers if they are being used
-                #numbered file, increment if checked and if saving an image
-                if img and self.include_incrementing_image_num.isChecked(): #include number
-                    imgnum = int(self.include_incrementing_image_num.text()) + 1
-                    self.include_incrementing_image_num.setText(str(imgnum).zfill(4))
-                self.createFilename()
-
-                if not slowseries:
-                    if series == False or i == numOfFrames:
-                        #only increment the directory if done with this series
-                        #numbered directory, increment if checked
-                        if img and self.include_incrementing_dir_num.isChecked():
-                            dirnum = int(self.include_incrementing_dir_num.text())+1
-                            #automatically sets first image number back to zero
-                            self.include_incrementing_image_num.setText(str(int(0)).zfill(4))
-                            self.include_incrementing_dir_num.setText(str(dirnum).zfill(2))
-                        self.createFilename()
-                        self.timeseries.setChecked(False)
-                if slowseries:
-                    if self.lastimageflag == True:
-                        self.livebutton.toggle()
-                        #only increment the directory if done with the series
-                        if img and self.include_incrementing_dir_num.isChecked():
-                            dirnum = int(self.include_incrementing_dir_num.text())+1
-                            #automatically sets first image number back to zero
-                            self.include_incrementing_image_num.setText(str(int(0)).zfill(4))
-                            self.include_incrementing_dir_num.setText(str(dirnum).zfill(2))
-
-                        self.createFilename()
-            else:
-                directorywarning = QtGui.QMessageBox()
-                directorywarning.setWindowTitle('Filename Error')
-                directorywarning.setText('The directory you chose does not exist. This software will only create the directory for you if the path exists all the way up to the final subdirectory. Create the necessary path structure on your computer or save to an already existing location. Image NOT saved.')
-                ret = directorywarning.exec_()
-                self.saveImageOrYaml(img)
+    def save_image(self):
+        mkdir_p(self.save_directory)
+        write_image(self.filename, self.image)
         self.save.setChecked(False)
+        if self.include_incrementing_image_num.isChecked():
+            increment_textbox(self.include_incrementing_image_num)
+        elif self.include_incrementing_dir_num.isChecked():
+            increment_textbox(self.include_incrementing_dir_num)
+            zero_textbox(self.include_incrementing_image_num)
+
+    def next_directory(self):
+        if self.include_incrementing_dir_num.isChecked():
+            increment_textbox(self.include_incrementing_dir_num)
+            zero_textbox(self.include_incrementing_image_num)
+
+
+
+    def save_metadata(self):
+        mkdir_p(self.save_directory)
+        metadata = {'microscope' : str(self.microSelections.currentText()),
+                    'light' : str(self.lightSelections.currentText()),
+                    'objective' : str(self.objectiveSelections.currentText()),
+                    'notes' : str(self.metaNotes.text())}
+
+        if self.tubeYes.checkState():
+            metadata['tube-magnification'] = '1.5X'
+        else:
+            metadata['tube-magnification'] = '1.0X'
+
+        open(self.metadata_filename, 'w').write(yaml.dump(metadata))
 
 
     def live(self):
@@ -811,14 +748,25 @@ class captureFrames(QtGui.QWidget):
     def collectTimeSeries(self):
         #both the fast and slow varieties
         if self.timeseries.isChecked():#fast
+            # It doesn't make any sense to save a timeseries without
+            # an incrementing number, so force this flag to be set
+            self.include_incrementing_image_num.setChecked(True)
+            zero_textbox(self.include_incrementing_image_num)
+            self.next_directory()
             numberOfImages = int(self.numOfFrames.text())
             self.camera.start_sequence_capture(numberOfImages)
 
         if self.timeseries_slow.isChecked():
-            #set flags to be referenced by  event handler
-            self.lastmod = 1
-            self.lastimageflag = False
-            self.imageCounter = 0
+            # It doesn't make any sense to save a timeseries without
+            # an incrementing number, so force this flag to be set
+            self.include_incrementing_image_num.setChecked(True)
+            # Start the timeseries from 0. For now we use this same
+            # number to track the frames in the slow timeseries, but
+            # it could use a seperate timer if there was a reason to.
+            zero_textbox(self.include_incrementing_image_num)
+            self.next_directory()
+            self.slowseries_start = time.time()
+
 
     def showImage(self):
         #https://github.com/shuge/Enjoy-Qt-Python-Binding/blob/master/image/display_img/pil_to_qpixmap.py
@@ -840,7 +788,7 @@ class captureFrames(QtGui.QWidget):
 
         self.frame.setPixmap(myScaledPixmap)
 
-    def createFilename(self):
+    def update_filename(self):
         #update QLabel with example filename
         self.path.setText(self.filename)
         self.path_example.setText(self.filename)
@@ -944,6 +892,9 @@ class captureFrames(QtGui.QWidget):
         if status == 'return to live':
             self.livebutton.setChecked(True)
             self.live()
+
+def write_image(filename, image):
+    Image.fromarray(image).save(filename, autoscale=False)
 
 def main():
 

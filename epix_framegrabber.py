@@ -116,19 +116,3 @@ class PhotonFocusCamera(object):
 
     def stop_live_capture(self, ):
         epix.pxd_goUnLive(0x1)
-
-    def frameToArray(self, bufnum):
-
-        xdim = epix.pxd_imageXdim()
-        ydim = epix.pxd_imageYdim()
-
-        imagesize = xdim*ydim
-
-        c_buf = (c_ubyte * imagesize)(0)
-        c_buf_size = sizeof(c_buf)
-        epix.pxd_readuchar(0x1,bufnum,0,0,-1,ydim, c_buf, c_buf_size, "Gray")
-
-        im = np.frombuffer(c_buf, c_ubyte)
-        im = im.reshape([xdim, ydim])
-
-        return self._correct_image_dtype(im)

@@ -137,5 +137,19 @@ class CheckboxGatedValue(QtGui.QHBoxLayout):
     def isChecked(self):
         return self.checkbox.isChecked()
 
+    def setChecked(self, value):
+        self.checkbox.setChecked(value)
 
-#def make_radio_group(labels, )
+def increment_textbox(textbox):
+    old = textbox.text()
+    digits = len(old)
+    textbox.setText(str(int(old)+1).zfill(digits))
+
+def zero_textbox(textbox):
+    textbox.setText(str(0).zfill(len(textbox.text())))
+
+def textbox_int(textbox):
+    return int(str(textbox.text()))
+
+def textbox_float(textbox):
+    return float(str(textbox.text()))
