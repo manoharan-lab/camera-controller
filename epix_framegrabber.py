@@ -85,18 +85,23 @@ class PhotonFocusCamera(object):
         if self.bit_depth > 8:
             c_type = c_ushort
             cam_read = epix.pxd_readushort
-            dtype = 'int16'
         else:
             c_type = c_ubyte
             cam_read = epix.pxd_readuchar
-            dtype = 'uint8'
         c_buf = (c_type * imagesize)(0)
         c_buf_size = sizeof(c_buf)
 
         cam_read(0x1, buffer_number, 0, 0, -1, ydim, c_buf,
                            c_buf_size, "Gray")
+                           
+        im = np.frombuffer(c_buf, c_type).reshape([xdim, ydim])
+        if self.bit_depth > 8:
+            # We have to return a 16 bit image, use the upper bits so that 
+            # outputs look nicer (max pixel intensity will be interpreted as 
+            # white by image viewers)
+            im = im * 2**(16-self.bit_depth)
 
-        return np.frombuffer(c_buf, c_type).reshape([xdim, ydim]).astype(dtype)
+        return im
 
     def get_frame_number(self):
         return epix.pxd_capturedBuffer(1)-1

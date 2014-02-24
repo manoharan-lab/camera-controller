@@ -645,7 +645,8 @@ class captureFrames(QtGui.QWidget):
         self.showImage()
 
         #show info about this image
-        def set_imageinfo(maxval=self.image.max(), frame_number=frame_number):
+        def set_imageinfo():
+            maxval = self.image.max()
             portion = round(np.sum(self.image == maxval)/(1.0*np.size(self.image)),3)
             self.imageinfo.setText(
                 'Max pixel value: {}, Fraction at max: {}, Frame number in buffer: {}'.format(maxval, portion, frame_number))
@@ -777,8 +778,11 @@ class captureFrames(QtGui.QWidget):
             im = np.true_divide(im, self.background_image)
             im = (im * 255.0/im.max()).astype('uint8')
         elif self.bit_depth > 8:
-            im = im // 2**(self.bit_depth-8)
-        im = Image.fromarray(im)
+            # if we ask the camera for more than 8 bits, we will get a 16 bit 
+            # image that uses the upper bits, so discard the lower 8 bits to get
+            # something we can show on the screen
+            im = im / 2**8
+        im = to_pil_image(im)
         data = im.convert("RGBA").tostring('raw', "RGBA")
 
         qim = QtGui.QImage(data, self.roi_shape[0], self.roi_shape[1], QtGui.QImage.Format_ARGB32)
@@ -894,8 +898,15 @@ class captureFrames(QtGui.QWidget):
             self.live()
 
 def write_image(filename, image):
-    Image.fromarray(image).save(filename, autoscale=False)
+    to_pil_image(image).save(filename, autoscale=False)
 
+    
+def to_pil_image(image):
+    if image.dtype == 'uint16':
+        # PIL can't handle uint16, so we convert to int16 before sending to pil
+        image = image.astype('int16')
+    return Image.fromarray(image)
+    
 def main():
 
     app = QtGui.QApplication(sys.argv)
