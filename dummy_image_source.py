@@ -52,10 +52,10 @@ class DummyCamera(object):
         if self.bit_depth == 8:
             dtype = 'uint8'
         else:
-            dtype = 'int16'
+            dtype = 'uint16'
         if self.live and self.frame_number < self.stop_frame:
             random = np.random.random(self.roi_shape)
-            self.lastimage = (random * (2**self.bit_depth)).astype(dtype)
+            self.lastimage = (random * (2**16)).astype(dtype)
 
             self.frame_number += 1
         return self.lastimage

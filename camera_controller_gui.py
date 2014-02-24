@@ -673,6 +673,35 @@ class captureFrames(QtGui.QWidget):
                     increment_textbox(self.include_incrementing_image_num)
                 self.timeseries.setChecked(False)
 
+    @property
+    def dtype(self):
+        if self.bit_depth == 8:
+            return 'uint8'
+        else:
+            return 'uint15'
+
+    def showImage(self):
+        #https://github.com/shuge/Enjoy-Qt-Python-Binding/blob/master/image/display_img/pil_to_qpixmap.py
+        #myQtImage = ImageQt(im)
+        #qimage = QtGui.QImage(myQtImage)
+        im = self.image
+        if self.background_image is not None:
+            im = np.true_divide(im, self.background_image)
+            im = (im * 255.0/im.max()).astype(self.dtype)
+        elif self.bit_depth > 8:
+            # if we ask the camera for more than 8 bits, we will get a 16 bit
+            # image that uses the upper bits, so discard the lower 8 bits to get
+            # something we can show on the screen
+            im = im / 2**8
+        im = to_pil_image(im)
+        data = im.convert("RGBA").tostring('raw', "RGBA")
+
+        qim = QtGui.QImage(data, self.roi_shape[0], self.roi_shape[1], QtGui.QImage.Format_ARGB32)
+        pixmap = QtGui.QPixmap.fromImage(qim)
+
+        myScaledPixmap = pixmap.scaled(QtCore.QSize(750,750))
+
+        self.frame.setPixmap(myScaledPixmap)
 
     def save_series(self):
         for i in range(1, 1 + textbox_int(self.numOfFrames)):
@@ -702,6 +731,13 @@ class captureFrames(QtGui.QWidget):
     @property
     def metadata_filename(self):
         return self.base_filename + '.yaml'
+
+    def update_filename(self):
+        #update QLabel with example filename
+        self.path.setText(self.filename)
+        self.path_example.setText(self.filename)
+        if os.path.isfile(self.filename):
+            self.path.setText('DANGER: SET TO OVERWRITE DATA, CHANGE FILENAME')
 
     def save_image(self):
         mkdir_p(self.save_directory)
@@ -768,36 +804,6 @@ class captureFrames(QtGui.QWidget):
             self.next_directory()
             self.slowseries_start = time.time()
 
-
-    def showImage(self):
-        #https://github.com/shuge/Enjoy-Qt-Python-Binding/blob/master/image/display_img/pil_to_qpixmap.py
-        #myQtImage = ImageQt(im)
-        #qimage = QtGui.QImage(myQtImage)
-        im = self.image
-        if self.background_image is not None:
-            im = np.true_divide(im, self.background_image)
-            im = (im * 255.0/im.max()).astype('uint8')
-        elif self.bit_depth > 8:
-            # if we ask the camera for more than 8 bits, we will get a 16 bit 
-            # image that uses the upper bits, so discard the lower 8 bits to get
-            # something we can show on the screen
-            im = im / 2**8
-        im = to_pil_image(im)
-        data = im.convert("RGBA").tostring('raw', "RGBA")
-
-        qim = QtGui.QImage(data, self.roi_shape[0], self.roi_shape[1], QtGui.QImage.Format_ARGB32)
-        pixmap = QtGui.QPixmap.fromImage(qim)
-
-        myScaledPixmap = pixmap.scaled(QtCore.QSize(750,750))
-
-        self.frame.setPixmap(myScaledPixmap)
-
-    def update_filename(self):
-        #update QLabel with example filename
-        self.path.setText(self.filename)
-        self.path_example.setText(self.filename)
-        if os.path.isfile(self.filename):
-            self.path.setText('DANGER: SET TO OVERWRITE DATA, CHANGE FILENAME')
 
 
     def resetSavingOptions(self):
@@ -900,13 +906,13 @@ class captureFrames(QtGui.QWidget):
 def write_image(filename, image):
     to_pil_image(image).save(filename, autoscale=False)
 
-    
+
 def to_pil_image(image):
     if image.dtype == 'uint16':
         # PIL can't handle uint16, so we convert to int16 before sending to pil
         image = image.astype('int16')
     return Image.fromarray(image)
-    
+
 def main():
 
     app = QtGui.QApplication(sys.argv)
