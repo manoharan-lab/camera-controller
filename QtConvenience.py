@@ -60,7 +60,6 @@ def make_button(label, callback, parent, shortcut=None, height=50, width=100,
         A tooltip for the button
     """
     button = QtGui.QPushButton(label, parent)
-    button.clicked.connect(callback)
     if height:
         button.setFixedHeight(height)
     if width:
@@ -69,6 +68,7 @@ def make_button(label, callback, parent, shortcut=None, height=50, width=100,
         button.setShortcut(shortcut)
     if tooltip is not None:
         button.setToolTip(tooltip)
+    button.clicked.connect(callback)
     return button
 
 def make_checkbox(label, start_checked=False, callback=None):
@@ -141,7 +141,7 @@ class CheckboxGatedValue(QtGui.QHBoxLayout):
         if isinstance(self._value, QtGui.QWidget):
             return str(self._value.text())
         else:
-            return self.value()
+            return self._value()
 
     def setText(self, value):
         self._value.setText(value)
