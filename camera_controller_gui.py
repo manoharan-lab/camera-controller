@@ -45,7 +45,7 @@ from PyQt4 import QtGui, QtCore
 from PIL.ImageQt import ImageQt
 from PIL import Image
 
-from scipy.misc import toimage
+from scipy.misc import toimage, fromimage, bytescale
 import numpy as np
 import time
 import yaml
@@ -678,7 +678,7 @@ class captureFrames(QtGui.QWidget):
         if self.bit_depth == 8:
             return 'uint8'
         else:
-            return 'uint15'
+            return 'uint16'
 
     def showImage(self):
         #https://github.com/shuge/Enjoy-Qt-Python-Binding/blob/master/image/display_img/pil_to_qpixmap.py
@@ -687,7 +687,7 @@ class captureFrames(QtGui.QWidget):
         im = self.image
         if self.background_image is not None:
             im = np.true_divide(im, self.background_image)
-            im = (im * 255.0/im.max()).astype(self.dtype)
+            im = bytescale(im)
         elif self.bit_depth > 8:
             # if we ask the camera for more than 8 bits, we will get a 16 bit
             # image that uses the upper bits, so discard the lower 8 bits to get
@@ -879,7 +879,11 @@ class captureFrames(QtGui.QWidget):
                 self, "Choose a background File", ".",
                 "Tiff Images (*.tif *.tiff)")
             self.background_image_filename.setText(filename)
-            self.background_image = np.array(Image.open(str(filename))).astype('uint8')
+            im = fromimage(Image.open(str(filename)).convert('I'))
+            # We are going to want to divide py this so make sure it doesn't have
+            # any pixels which are 0
+            im[im == 0] = 1
+            self.background_image = im
         else:
             self.background_image_filename.setText("No background applied")
             self.background_image = None
