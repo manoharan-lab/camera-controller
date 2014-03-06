@@ -625,7 +625,7 @@ class captureFrames(QtGui.QWidget):
 
         self.setLayout(largevbox)
 
-        self.setGeometry(100, 100, 800, 500) #window size and location
+        self.setGeometry(10, 50, 800, 800) #window size and location
         self.setWindowTitle('Camera Controller')
         self.show()
 
@@ -699,7 +699,7 @@ class captureFrames(QtGui.QWidget):
         qim = QtGui.QImage(data, self.roi_shape[0], self.roi_shape[1], QtGui.QImage.Format_ARGB32)
         pixmap = QtGui.QPixmap.fromImage(qim)
 
-        myScaledPixmap = pixmap.scaled(QtCore.QSize(750,750))
+        myScaledPixmap = pixmap.scaled(QtCore.QSize(900,900))
 
         self.frame.setPixmap(myScaledPixmap)
 
