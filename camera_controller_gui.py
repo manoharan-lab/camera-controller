@@ -152,11 +152,12 @@ class captureFrames(QtGui.QWidget):
         self.interval = make_LineEdit('0.5', width=75)
 
         self.applybackground = make_button('Apply Background',
-                                           self.select_background, self, width=200)
+                                           self.select_background, self, width=150)
         self.applybackground.setCheckable(True)
         self.applybackground.setStyleSheet("QPushButton:checked {background-color: green} QPushButton:pressed {background-color: green}")
         self.background_image_filename = make_label("No background applied")
         self.background_image = None
+        self.divide_background = make_checkbox("Divide Background")
 
         self.outfiletitle = QtGui.QLabel()
         self.outfiletitle.setText('Your next image will be saved as\n(use filenames tab to change):')
@@ -184,7 +185,7 @@ class captureFrames(QtGui.QWidget):
                                          make_HBox([self.interval, 'minutes apart', 1])])]),
                    1,
                    "Automatically Apply a background image \n(only for display, it still saves the raw images)",
-                   self.applybackground,
+                   make_HBox([self.applybackground, self.divide_background]),
                    self.background_image_filename,
                    self.outfiletitle,
                    self.path, 1],
@@ -648,8 +649,12 @@ class captureFrames(QtGui.QWidget):
         def set_imageinfo():
             maxval = self.image.max()
             portion = round(np.sum(self.image == maxval)/(1.0*np.size(self.image)),3)
+            if self.divide_background.isChecked():
+                is_autoscaled=", Contrast Autoscaled"
+            else:
+                is_autoscaled=""
             self.imageinfo.setText(
-                'Max pixel value: {}, Fraction at max: {}, Frame number in buffer: {}'.format(maxval, portion, frame_number))
+                'Max pixel value: {}, Fraction at max: {}, Frame number in buffer: {}{}'.format(maxval, portion, frame_number, is_autoscaled))
 
         set_imageinfo()
 
@@ -685,7 +690,8 @@ class captureFrames(QtGui.QWidget):
         #myQtImage = ImageQt(im)
         #qimage = QtGui.QImage(myQtImage)
         im = self.image
-        if self.background_image is not None:
+        if (self.divide_background.isChecked() and 
+            self.background_image is not None):
             im = np.true_divide(im, self.background_image)
             im = bytescale(im)
         elif self.bit_depth > 8:
@@ -884,9 +890,9 @@ class captureFrames(QtGui.QWidget):
             # any pixels which are 0
             im[im == 0] = 1
             self.background_image = im
+            self.divide_background.setChecked(True)
         else:
-            self.background_image_filename.setText("No background applied")
-            self.background_image = None
+            self.divide_background.setChecked(False)
 
         if status == 'return to live':
             self.livebutton.setChecked(True)
