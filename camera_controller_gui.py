@@ -64,7 +64,8 @@ from QtConvenience import (make_label, make_HBox, make_VBox,
                            make_LineEdit, make_button,
                            make_control_group, make_checkbox,
                            CheckboxGatedValue, increment_textbox,
-                           zero_textbox, textbox_int, textbox_float)
+                           zero_textbox, textbox_int, textbox_float,
+                           make_combobox)
 
 
 #TODO: construct format file outside of the image grabbing loop, only
@@ -202,49 +203,20 @@ class captureFrames(QtGui.QWidget):
         tab2title.setAlignment(QtCore.Qt.AlignTop)
         tab2title.setWordWrap(True)
 
-        camera = QtGui.QLabel()
-        camera.setFixedHeight(30)
-        camera.setAlignment(QtCore.Qt.AlignBottom)
-        camera.setText('Camera:')
-        camera.setStyleSheet('font-weight:bold')
-
-        self.cameraChoices = QtGui.QComboBox()
-        self.cameraChoices.addItem("Simulated")
         if epix_available:
-            self.cameraChoices.addItem("Photon Focus")
-            self.cameraChoices.setCurrentIndex(1)
-        self.cameraChoices.setFixedWidth(150)
-        self.cameraChoices.activated[str].connect(self.change_camera)
+            self.camera_choice = make_combobox(["Simulated", "Photon Focus"],
+                                               self.change_camera, default=1)
+        else:
+            self.camera_choice = make_combobox(["Simulated"], self.change_camera)
         #self.bitdepth.activated[str].connect(self.reopen_camera)
 
-        bit = QtGui.QLabel()
-        bit.setFixedHeight(30)
-        bit.setAlignment(QtCore.Qt.AlignBottom)
-        bit.setText('Bit Depth:')
-        bit.setStyleSheet('font-weight:bold')
 
-        self.bitdepthChoices = QtGui.QComboBox()
-        self.bitdepthChoices.addItem("8 bit")
-        self.bitdepthChoices.addItem("10 bit")
-        self.bitdepthChoices.addItem("12 bit")
-        #self.bitdepthChoices.addItem("14 bit")
-        self.bitdepthChoices.setFixedWidth(150)
-        self.bitdepthChoices.setCurrentIndex(2)
-        self.bitdepthChoices.activated[str].connect(self.reopen_camera)
-        #self.bitdepth.activated[str].connect(self.reopen_camera)
+        self.bitdepth_choice = make_combobox(['8 bit', '10 bit', '12 bit'],
+                                             self.reopen_camera, default=2)
 
-        roititle = QtGui.QLabel()
-        roititle.setText('Frame size in pixels. Default to maximum size.\nRegions are taken from top left.')
-        roititle.setFixedHeight(40)
-        roititle.setWordWrap(True)
-        roititle.setAlignment(QtCore.Qt.AlignTop)
-
-        roiSizeLabel = QtGui.QLabel()
-        roiSizeLabel.setFixedHeight(30)
-        roiSizeLabel.setAlignment(QtCore.Qt.AlignBottom)
-        roiSizeLabel.setText('Region of Interest Size:')
-        roiSizeLabel.setStyleSheet('font-weight:bold')
-
+        self.roi_size_choice = make_combobox(["1024 x 1024", "512 x 512",
+                                              "256 x 256", "128 x 128", "64 x 64"],
+                                             callback=self.reopen_camera)
         self.roiSizeChoices = QtGui.QComboBox()
         self.roiSizeChoices.addItem("1024 x 1024")
         self.roiSizeChoices.addItem("512 x 512")
@@ -260,17 +232,18 @@ class captureFrames(QtGui.QWidget):
         roiLocLabel.setText('ROI Location: \nTODO')
         roiLocLabel.setStyleSheet('font-weight:bold')
 
-        self.framerate = QtGui.QLabel()
-        self.framerate.setText('Must match the data output type in PFRemote')
-
         tab2 = QtGui.QWidget()
 
-        make_VBox([
-                   camera, self.cameraChoices,
-                   bit, self.bitdepthChoices,
-                   self.framerate,
-                   roiSizeLabel, roititle, self.roiSizeChoices,
-                   roiLocLabel,
+        make_VBox([make_label("Camera:", bold=True),
+                   self.camera_choice,
+                   make_label("Bit Depth:", bold=True),
+                   self.bitdepth_choice,
+                   'Must match the data output type in PFRemote',
+                   make_label("Region of Interest Size:", bold=True,
+                               align='bottom', height=30),
+                   'Frame size in pixels. Default to maximum size.\nRegions are taken from top left.',
+                   self.roi_size_choice,
+                   make_label('ROI Location: \nTODO', bold=True, height=45, align='bottom'),
                    1],
                   tab2)
 
@@ -690,7 +663,7 @@ class captureFrames(QtGui.QWidget):
         #myQtImage = ImageQt(im)
         #qimage = QtGui.QImage(myQtImage)
         im = self.image
-        if (self.divide_background.isChecked() and 
+        if (self.divide_background.isChecked() and
             self.background_image is not None):
             im = np.true_divide(im, self.background_image)
             im = bytescale(im)

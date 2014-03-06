@@ -80,6 +80,18 @@ def make_checkbox(label, start_checked=False, callback=None):
         checkbox.stateChanged.connect(callback)
     return checkbox
 
+def make_combobox(items, callback, width=150, default=None):
+    box = QtGui.QComboBox()
+    for item in items:
+        box.addItem(item)
+    if default is not None:
+        box.setCurrentIndex(default)
+    if width is not None:
+        box.setFixedWidth(150)
+    if callback is not None:
+        box.activated[str].connect(callback)
+    return box
+
 def make_control_group(parent, buttons, exclusive=True, default=None):
     controlgroup = QtGui.QButtonGroup(QtGui.QWidget(parent))
     for button in buttons:
