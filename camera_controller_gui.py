@@ -96,6 +96,10 @@ class captureFrames(QtGui.QWidget):
         self.initUI()
         # we have to set this text after the internals are initialized since the filename is constructed from widget values
         self.update_filename()
+        # pretend the last save was a timeseries, this just means that
+        # we don't need to increment the dir number before saving the
+        # first timeseries
+        self.last_save_was_series = True
         QtGui.QShortcut(QtGui.QKeySequence("Ctrl+Q"), self, self.close)
 
 
@@ -648,7 +652,10 @@ class captureFrames(QtGui.QWidget):
                 for i in range(1, 1 + textbox_int(self.numOfFrames)):
                     write_image(self.filename(), self.camera.get_image(i))
                     increment_textbox(self.include_incrementing_image_num)
+                self.next_directory()
                 self.timeseries.setChecked(False)
+                self.livebutton.setChecked(True)
+                self.live()
 
     @property
     def dtype(self):
@@ -716,6 +723,7 @@ class captureFrames(QtGui.QWidget):
             self.path.setText('DANGER: SET TO OVERWRITE DATA, CHANGE FILENAME')
 
     def save_image(self):
+        self.last_save_was_series = False
         mkdir_p(self.save_directory())
         write_image(self.filename(), self.image)
         self.save.setChecked(False)
@@ -733,7 +741,6 @@ class captureFrames(QtGui.QWidget):
 
 
     def save_metadata(self):
-        mkdir_p(self.save_directory())
         metadata = {'microscope' : str(self.microSelections.currentText()),
                     'light' : str(self.lightSelections.currentText()),
                     'objective' : str(self.objectiveSelections.currentText()),
@@ -759,26 +766,21 @@ class captureFrames(QtGui.QWidget):
 
 
     def collectTimeSeries(self):
+        if self.timeseries.isChecked() or self.timeseries_slow.isChecked():
+            # It doesn't make any sense to save a timeseries without
+            # an incrementing number, so force this flag to be set
+            self.include_incrementing_image_num.setChecked(True)
+            if self.last_save_was_series == False:
+                self.next_directory()
+            zero_textbox(self.include_incrementing_image_num)
+            self.last_save_was_series = True
         #both the fast and slow varieties
         if self.timeseries.isChecked():#fast
-            # It doesn't make any sense to save a timeseries without
-            # an incrementing number, so force this flag to be set
-            self.include_incrementing_image_num.setChecked(True)
-            zero_textbox(self.include_incrementing_image_num)
-            self.next_directory()
             numberOfImages = int(self.numOfFrames.text())
             self.camera.start_sequence_capture(numberOfImages)
-
         if self.timeseries_slow.isChecked():
-            # It doesn't make any sense to save a timeseries without
-            # an incrementing number, so force this flag to be set
-            self.include_incrementing_image_num.setChecked(True)
-            # Start the timeseries from 0. For now we use this same
-            # number to track the frames in the slow timeseries, but
-            # it could use a seperate timer if there was a reason to.
-            zero_textbox(self.include_incrementing_image_num)
-            self.next_directory()
             self.slowseries_start = time.time()
+
 
 
 
@@ -802,7 +804,7 @@ class captureFrames(QtGui.QWidget):
         #Aaron default
         #self.root_save_path.setText("/home/agoldfain/Desktop")
         #superscope default:
-        self.root_save_path.setText(os.path.join("C:", "Users", "manoharanlab", 
+        self.root_save_path.setText(os.path.join("C:", "Users", "manoharanlab",
                                                  "data", "[YOUR NAME]"))
 
 
