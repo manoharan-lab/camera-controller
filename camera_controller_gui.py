@@ -279,7 +279,8 @@ class captureFrames(QtGui.QWidget):
         # Directory
         self.browse = make_button("Browse", self.select_directory, self,
                                   height=30, width=100)
-        self.root_save_path = make_LineEdit("C:/Users/manoharanlab/data/[YOUR NAME]",
+        self.root_save_path = make_LineEdit(
+            os.path.join("C:\\", "Users",     "manoharanlab", "data", "[YOUR NAME]"),
                                             self.update_filename)
         self.include_dated_subdir = CheckboxGatedValue(
             "Use a dated subdirectory", lambda : time.strftime("%y_%m_%d"),
@@ -801,7 +802,8 @@ class captureFrames(QtGui.QWidget):
         #Aaron default
         #self.root_save_path.setText("/home/agoldfain/Desktop")
         #superscope default:
-        self.root_save_path.setText("C:/Users/manoharanlab/data/[YOUR NAME]")
+        self.root_save_path.setText(os.path.join("C:", "Users", "manoharanlab", 
+                                                 "data", "[YOUR NAME]"))
 
 
     def reopen_camera(self, size_str):
