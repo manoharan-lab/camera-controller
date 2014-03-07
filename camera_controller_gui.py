@@ -266,7 +266,7 @@ class captureFrames(QtGui.QWidget):
             "Include this text:", make_LineEdit("image"), self.update_filename,
             True)
         self.include_current_date = CheckboxGatedValue(
-            "include date", lambda : time.strftime("%y_%m_%d_"),
+            "include date", lambda : time.strftime("%Y-%m-%d_"),
             callback=self.update_filename)
         self.include_current_time = CheckboxGatedValue(
             "include time", lambda : time.strftime("%H_%M_%S"),
@@ -283,7 +283,7 @@ class captureFrames(QtGui.QWidget):
             os.path.join("C:\\", "Users",     "manoharanlab", "data", "[YOUR NAME]"),
                                             self.update_filename)
         self.include_dated_subdir = CheckboxGatedValue(
-            "Use a dated subdirectory", lambda : time.strftime("%y_%m_%d"),
+            "Use a dated subdirectory", lambda : time.strftime("%Y-%m-%d"),
             self.update_filename, True)
         self.include_incrementing_dir_num = CheckboxGatedValue(
             "include an incrementing number, next is:", make_LineEdit('00'),
