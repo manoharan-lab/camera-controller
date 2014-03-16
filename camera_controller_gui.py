@@ -308,7 +308,7 @@ class captureFrames(QtGui.QWidget):
                                              width=250,
                                              editable=True)
 
-        self.lightSelections = make_combobox(["Red Laser, 660 nm",
+        self.lightSelections = make_combobox(["660 nm Red Laser",
                                               "White LED Illuminator",
                                               "Nikon White Light",
                                               "Dic", "Other (edit to specify)"],
@@ -316,11 +316,11 @@ class captureFrames(QtGui.QWidget):
                                              editable=True)
 
         self.objectiveSelections = make_combobox(
-            ["Nikon 60x Water Immersion, Correction Collar:",
-             "Nikon 100x Oil Immersion",
-             "Nikon 10x, air",
-             "Nikon 40x, air",
-             "Other: (edit to specify)"],
+            ["60x Nikon, Water Immersion, Correction Collar:",
+             "100x Nikon, Oil Immersion",
+             "10x Nikon, air",
+             "40x Nikon, air",
+             "?x Other: (edit to specify)"],
             editable=True)
 
         self.tubeYes = make_checkbox("Yes")
@@ -579,10 +579,14 @@ class captureFrames(QtGui.QWidget):
                     'objective' : str(self.objectiveSelections.currentText()),
                     'notes' : str(self.metaNotes.text())}
 
+        magnification = int(metadata['objective'].split('x')[0].strip())
         if self.tubeYes.checkState():
             metadata['tube-magnification'] = '1.5X'
+            magnification = magnification * 1.5
         else:
             metadata['tube-magnification'] = '1.0X'
+
+        metadata['magnification'] = magnification
         return metadata
 
     def save_metadata(self):
