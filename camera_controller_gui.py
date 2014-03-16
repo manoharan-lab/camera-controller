@@ -64,7 +64,7 @@ from QtConvenience import (make_label, make_HBox, make_VBox,
                            make_control_group, make_checkbox,
                            CheckboxGatedValue, increment_textbox,
                            zero_textbox, textbox_int, textbox_float,
-                           make_combobox)
+                           make_combobox, make_tabs)
 
 
 #TODO: construct format file outside of the image grabbing loop, only
@@ -119,7 +119,6 @@ class captureFrames(QtGui.QWidget):
         #########################################
         # Tab 1, Main controls viewing/saving
         #########################################
-
         self.livebutton = make_button('Live\nf1', self.live, self, QtGui.QKeySequence('f1'))
         self.livebutton.setStyleSheet("QPushButton:checked {background-color: green} QPushButton:pressed {background-color: green}")
         self.freeze = make_button('Freeze\nf2', self.live, self, QtGui.QKeySequence('f2'))
@@ -171,36 +170,31 @@ class captureFrames(QtGui.QWidget):
 
         self.path = make_label("")
 
-        tab1 = QtGui.QWidget()
-
-        make_VBox([
-                   make_HBox([self.livebutton,
-                   self.freeze,1]),
-                   1,
-                   'Save image showing when clicked',
-                   make_HBox([self.save, self.increment_dir_num]),
-                   1,
-                   'Store the requested number of images to the buffer and then save the files to hard disk. \n\nThe frame rate is set in the Photon Focus Remote software.',
-                   make_HBox([self.timeseries, self.numOfFrames, 'frames', 1]),
-                   1,
-                   'Equivalent to clicking "Save" at regular intervals',
-                   make_HBox([self.timeseries_slow,
-                              make_VBox([make_HBox([self.numOfFrames2, 'frames', 1]),
-                                         make_HBox([self.interval, 'minutes apart', 1])])]),
-                   1,
-                   "Automatically Apply a background image \n(only for display, it still saves the raw images)",
-                   make_HBox([self.applybackground, self.divide_background]),
-                   self.background_image_filename,
-                   self.outfiletitle,
-                   self.path, 1],
-                  tab1)
+        tab1 = ("Image Capture",
+                [make_HBox([self.livebutton, self.freeze,1]),
+                 1,
+                'Save image showing when clicked',
+                 make_HBox([self.save, self.increment_dir_num]),
+                 1,
+                 'Store the requested number of images to the buffer and then save the files to hard disk. \n\nThe frame rate is set in the Photon Focus Remote software.',
+                 make_HBox([self.timeseries, self.numOfFrames, 'frames', 1]),
+                 1,
+                 'Equivalent to clicking "Save" at regular intervals',
+                 make_HBox([self.timeseries_slow,
+                            make_VBox([make_HBox([self.numOfFrames2, 'frames', 1]),
+                                       make_HBox([self.interval, 'minutes apart', 1])])]),
+                 1,
+                 "Automatically Apply a background image \n(only for display, it still saves the raw images)",
+                 make_HBox([self.applybackground, self.divide_background]),
+                 self.background_image_filename,
+                 self.outfiletitle,
+                 self.path, 1])
 
 
         ###################################################################
         # Tab 2, camera settings need to be set in Photon Focus remote too
 
         ###################################################################
-
         cameras = ["Simulated"]
         if epix_available:
             cameras = ["Photon Focus"] + cameras
@@ -214,30 +208,23 @@ class captureFrames(QtGui.QWidget):
         self.roi_size_choice = make_combobox(["1024 x 1024", "512 x 512",
                                               "256 x 256", "128 x 128", "64 x 64"],
                                              callback=self.reopen_camera, width=150)
-        tab2 = QtGui.QWidget()
 
-        make_VBox([
-            "Modify Camera Settings",
-            make_label("Camera:", bold=True),
-            self.camera_choice,
-            make_label("Bit Depth:", bold=True),
-            self.bitdepth_choice,
-            'Must match the data output type in PFRemote',
-            make_label("Region of Interest Size:", bold=True,
-                       align='bottom', height=30),
-            'Frame size in pixels. Default to maximum size.\nRegions are taken from top left.',
-            self.roi_size_choice,
-            make_label('ROI Location: \nTODO', bold=True, height=45, align='bottom'),
-            1], tab2)
-
-
+        tab2 = ("Camera",
+                ["Modify Camera Settings",
+                 make_label("Camera:", bold=True),
+                 self.camera_choice,
+                 make_label("Bit Depth:", bold=True),
+                 self.bitdepth_choice,
+                 'Must match the data output type in PFRemote',
+                 make_label("Region of Interest Size:", bold=True,
+                            align='bottom', height=30),
+                 'Frame size in pixels. Default to maximum size.\nRegions are taken from top left.',
+                 self.roi_size_choice,
+                 make_label('ROI Location: \nTODO', bold=True, height=45, align='bottom'), 1])
 
         #########################################
         # Tab 3, Options for saving output files
         #########################################
-
-        tab3 = QtGui.QWidget()
-
         ### File Name
         fileTypeLabel = make_label('Output File Format:', bold=True, height=30,
                                    align='bottom')
@@ -281,31 +268,31 @@ class captureFrames(QtGui.QWidget):
         self.reset = make_button("Reset to Default values", self.resetSavingOptions, self, height=None, width=None)
 
         self.path_example = make_label("")
-        tab3_layout = make_VBox([
-            make_label(
-                'Select the output format of your images and set up automatically '
-                'generated file names for saving images',
-                height=50, align='top'),
-            make_label('File Name:', bold=True, align='bottom', height=30),
-            make_HBox(["Image type", self.outputformat]),
-            self.include_filename_text,
-            self.include_current_date,
-            self.include_current_time,
-            self.include_incrementing_image_num,
-            ######
-            make_label('Directory:', bold=True, height=30, align='bottom'),
-            self.browse,
-            self.root_save_path,
-            self.include_dated_subdir,
-            self.include_incrementing_dir_num,
-            self.include_extra_dir_text,
-            1,
-            self.saveMetaYes,
-            make_label("If you save an image with these settings it will be saved as:", height=50, bold=True, align='bottom'),
-            self.path_example,
-            1,
-            self.reset
-        ], tab3)
+
+        tab3 = ("Filenames",
+                [make_label(
+                    'Select the output format of your images and set up automatically '
+                    'generated file names for saving images',
+                    height=50, align='top'),
+                 make_label('File Name:', bold=True, align='bottom', height=30),
+                 make_HBox(["Image type", self.outputformat]),
+                 self.include_filename_text,
+                 self.include_current_date,
+                 self.include_current_time,
+                 self.include_incrementing_image_num,
+                 ######
+                 make_label('Directory:', bold=True, height=30, align='bottom'),
+                 self.browse,
+                 self.root_save_path,
+                 self.include_dated_subdir,
+                 self.include_incrementing_dir_num,
+                 self.include_extra_dir_text,
+                 1,
+                 self.saveMetaYes,
+                 make_label("If you save an image with these settings it will be saved as:", height=50, bold=True, align='bottom'),
+                 self.path_example,
+                 1,
+                 self.reset])
 
 
         # TODO: make this function get its values from the defaults we give things
@@ -315,9 +302,6 @@ class captureFrames(QtGui.QWidget):
         ################################
         # Tab 4, place to enter metadata
         ################################
-
-        tab4 = QtGui.QWidget()
-
         self.microSelections = make_combobox(["Uberscope", "Mgruberscope",
                                               "George", "Superscope",
                                               "Other (edit to specify)"],
@@ -345,21 +329,21 @@ class captureFrames(QtGui.QWidget):
 
         self.saveMetaData = make_button("Save Metadata to Yaml", self.save_metadata, height=30, width=200)
 
-        tab4_layout = make_VBox([
-            make_label('User supplied metadata can be saved with button here, or alongside every image with a setting on the filenames tab', height=50, align='top'),
-            make_label('Microscope:', bold=True, height=30, align='bottom'),
-            self.microSelections,
-            make_label("Light source:", bold=True, height=30, align='bottom'),
-            self.lightSelections,
-            make_label('Microscope Objective:', bold=True, height=30, align='bottom'),
-            self.objectiveSelections,
-            make_HBox([
-                make_label("Using additional 1.5x tube lens?", bold=True),
-                self.tubeYes, 1]),
-            make_label('Notes (e.g. details about your sample):',
-                       height=30, align='bottom', bold=True),
-            self.metaNotes,
-            self.saveMetaData], tab4)
+        tab4 = ("Metadata",
+                [make_label('User supplied metadata can be saved with button here, or alongside every image with a setting on the filenames tab', height=50, align='top'),
+                 make_label('Microscope:', bold=True, height=30, align='bottom'),
+                 self.microSelections,
+                 make_label("Light source:", bold=True, height=30, align='bottom'),
+                 self.lightSelections,
+                 make_label('Microscope Objective:', bold=True, height=30, align='bottom'),
+                 self.objectiveSelections,
+                 make_HBox([
+                     make_label("Using additional 1.5x tube lens?", bold=True),
+                     self.tubeYes, 1]),
+                 make_label('Notes (e.g. details about your sample):',
+                            height=30, align='bottom', bold=True),
+                 self.metaNotes,
+                 self.saveMetaData])
 
         #TODO: put this in a function and update when any metadata changes
         #package metadata for saving in tif tag "description"
@@ -370,9 +354,6 @@ class captureFrames(QtGui.QWidget):
         ################################
         # Tab 5, Overlays
         ################################
-        tab5 = QtGui.QWidget()
-
-
         self.edgeEntry = make_LineEdit(width=40)
 
         def make_color_combobox():
@@ -391,35 +372,27 @@ class captureFrames(QtGui.QWidget):
         self.centerColEntry = make_pixel_entry()
         self.circolor = make_color_combobox()
 
-
-
         self.meshSizeEntry = make_pixel_entry()
         self.gridcolor = make_color_combobox()
 
-        tab5_layout = make_VBox([
-            make_label("Square", height=20, align='bottom', bold=True),
-            make_HBox(["Edge Length (pixels):", self.edgeEntry, 1]),
-            make_HBox(["Upper Left Corner Location (row, col):",
-                       self.cornerRowEntry, self.cornerColEntry, self.sqcolor]),
-            make_label("Circle:", bold=True, height=30, align='bottom'),
-            make_HBox(["Diameter (pixels):", self.diamEntry]),
-            make_HBox(["Center Location (row, col)", self.centerRowEntry,
-                       self.centerColEntry, self.circolor]),
-            make_label("Grid:", height=30, align='bottom', bold=True),
-            make_HBox(["Grid Square Size (pixels)", self.meshSizeEntry,
-                       self.gridcolor]),
-            1
-        ], tab5)
+        tab5 = ("Overlays",
+                [make_label("Square", height=20, align='bottom', bold=True),
+                 make_HBox(["Edge Length (pixels):", self.edgeEntry, 1]),
+                 make_HBox(["Upper Left Corner Location (row, col):",
+                            self.cornerRowEntry, self.cornerColEntry, self.sqcolor]),
+                 make_label("Circle:", bold=True, height=30, align='bottom'),
+                 make_HBox(["Diameter (pixels):", self.diamEntry]),
+                 make_HBox(["Center Location (row, col)", self.centerRowEntry,
+                            self.centerColEntry, self.circolor]),
+                 make_label("Grid:", height=30, align='bottom', bold=True),
+                 make_HBox(["Grid Square Size (pixels)", self.meshSizeEntry,
+                            self.gridcolor]),
+                 1])
 
 
         ################################################
 
-        tab_widget = QtGui.QTabWidget()
-        tab_widget.addTab(tab1, "Image Capture")
-        tab_widget.addTab(tab2, "Camera")
-        tab_widget.addTab(tab3, "Filenames")
-        tab_widget.addTab(tab4, "Meta Data")
-        tab_widget.addTab(tab5, "Overlays")
+        tab_widget = make_tabs([tab1, tab2, tab3, tab4, tab5])
 
         #Text at bottom of screen
         self.imageinfo = QtGui.QLabel()

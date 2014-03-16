@@ -165,3 +165,11 @@ def textbox_int(textbox):
 
 def textbox_float(textbox):
     return float(str(textbox.text()))
+
+def make_tabs(tabs):
+    tab_widget = QtGui.QTabWidget()
+    for name, content in tabs:
+        tab = QtGui.QWidget()
+        make_VBox(content, tab)
+        tab_widget.addTab(tab, name)
+    return tab_widget
