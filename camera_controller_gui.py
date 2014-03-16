@@ -42,7 +42,6 @@ and for timing long, slow time series captures.
 import sys
 import os
 from PyQt4 import QtGui, QtCore
-from PIL.ImageQt import ImageQt
 from PIL import Image
 
 from scipy.misc import toimage, fromimage, bytescale
@@ -209,18 +208,18 @@ class captureFrames(QtGui.QWidget):
 
         if epix_available:
             self.camera_choice = make_combobox(["Simulated", "Photon Focus"],
-                                               self.change_camera, default=1)
+                                               self.change_camera, default=1, width=150)
         else:
-            self.camera_choice = make_combobox(["Simulated"], self.change_camera)
+            self.camera_choice = make_combobox(["Simulated"], self.change_camera, width=150)
         #self.bitdepth.activated[str].connect(self.reopen_camera)
 
 
         self.bitdepth_choice = make_combobox(['8 bit', '10 bit', '12 bit'],
-                                             self.reopen_camera, default=2)
+                                             self.reopen_camera, default=2, width=150)
 
         self.roi_size_choice = make_combobox(["1024 x 1024", "512 x 512",
                                               "256 x 256", "128 x 128", "64 x 64"],
-                                             callback=self.reopen_camera)
+                                             callback=self.reopen_camera, width=150)
         self.roiSizeChoices = QtGui.QComboBox()
         self.roiSizeChoices.addItem("1024 x 1024")
         self.roiSizeChoices.addItem("512 x 512")
@@ -263,7 +262,7 @@ class captureFrames(QtGui.QWidget):
         fileTypeLabel = make_label('Output File Format:', bold=True, height=30,
                                    align='bottom')
 
-        self.outputformat = make_combobox(['.tif'], callback=self.update_filename)
+        self.outputformat = make_combobox(['.tif'], callback=self.update_filename, width=150)
         ###
 
         self.include_filename_text = CheckboxGatedValue(
@@ -338,93 +337,49 @@ class captureFrames(QtGui.QWidget):
         ################################
 
         tab4 = QtGui.QWidget()
-        tab4_layout = QtGui.QVBoxLayout(tab4)
 
-        tab4title = QtGui.QLabel()
-        tab4title.setText('User supplied metadata can be saved with button here, or alongside every image with a setting on the filenames tab')
-        tab4title.setFixedHeight(50)
-        tab4title.setWordWrap(True)
-        tab4title.setAlignment(QtCore.Qt.AlignTop)
-        tab4_layout.addWidget(tab4title)
+        self.microSelections = make_combobox(["Uberscope", "Mgruberscope",
+                                              "George", "Superscope",
+                                              "Other (edit to specify)"],
+                                             width=250,
+                                             editable=True)
 
-        microLabel = QtGui.QLabel()
-        microLabel.setFixedHeight(30)
-        microLabel.setAlignment(QtCore.Qt.AlignBottom)
-        microLabel.setText('Microscope:')
-        microLabel.setStyleSheet('font-weight:bold')
+        self.lightSelections = make_combobox(["Red Laser, 660 nm",
+                                              "White LED Illuminator",
+                                              "Nikon White Light",
+                                              "Dic", "Other (edit to specify)"],
+                                             width=250,
+                                             editable=True)
 
-        self.microSelections = QtGui.QComboBox(editable=True)
-        self.microSelections.setFixedWidth(250)
-        self.microSelections.addItem("Uberscope")
-        self.microSelections.addItem("Mgruberscope")
-        self.microSelections.addItem("George")
-        self.microSelections.addItem("Superscope")
-        self.microSelections.addItem("Other: (edit to specify)")
+        self.objectiveSelections = make_combobox(
+            ["Nikon 60x Water Immersion, Correction Collar:",
+             "Nikon 100x Oil Immersion",
+             "Nikon 10x, air",
+             "Nikon 40x, air",
+             "Other: (edit to specify)"],
+            editable=True)
 
-        lightLabel = QtGui.QLabel()
-        lightLabel.setFixedHeight(30)
-        lightLabel.setAlignment(QtCore.Qt.AlignBottom)
-        lightLabel.setText('Light source:')
-        lightLabel.setStyleSheet('font-weight:bold')
-
-        self.lightSelections = QtGui.QComboBox(editable=True)
-        self.lightSelections.setFixedWidth(250)
-        self.lightSelections.addItem("Red Laser, 660 nm")
-        self.lightSelections.addItem("White LED Illuminator")
-        self.lightSelections.addItem("Other: (edit to specify)")
-
-        objectiveLabel = QtGui.QLabel()
-        objectiveLabel.setFixedHeight(30)
-        objectiveLabel.setAlignment(QtCore.Qt.AlignBottom)
-        objectiveLabel.setText('Microscope Objective:')
-        objectiveLabel.setStyleSheet('font-weight:bold')
-
-        self.objectiveSelections = QtGui.QComboBox(editable=True)
-        self.objectiveSelections.addItem("Nikon 60x Water Immersion, Correction Collar:")
-        self.objectiveSelections.addItem("Nikon 100x Oil Immersion")
-        self.objectiveSelections.addItem("Nikon 10x, air")
-        self.objectiveSelections.addItem("Nikon 40x, air")
-        self.objectiveSelections.addItem("Other: (edit to specify)")
-
-        tubeLensLabel = QtGui.QLabel()
-        #tubeLensLabel.setFixedHeight(30)
-        tubeLensLabel.setAlignment(QtCore.Qt.AlignBottom)
-        tubeLensLabel.setText('Using additional 1.5x tube lens?')
-        tubeLensLabel.setStyleSheet('font-weight:bold')
-
-        self.tubeYes = QtGui.QCheckBox()
-        self.tubeYes.setText("Yes")
-
-        hbox = QtGui.QHBoxLayout()
-        hbox.addWidget(tubeLensLabel)
-        hbox.addWidget(self.tubeYes)
-        hbox.addStretch(1)
-
-        notesLabel = QtGui.QLabel()
-        notesLabel.setFixedHeight(30)
-        notesLabel.setAlignment(QtCore.Qt.AlignBottom)
-        notesLabel.setText('Notes (e.g. details about your sample):')
-        notesLabel.setStyleSheet('font-weight:bold')
+        self.tubeYes = make_checkbox("Yes")
 
         self.metaNotes = QtGui.QLineEdit()
 
-        self.saveMetaData = QtGui.QPushButton('Save Metadata To Yaml', self)
-        self.saveMetaData.setFixedHeight(30) #attribute from qwidget class
-        self.saveMetaData.setFixedWidth(200)
-        self.saveMetaData.clicked.connect(self.save_metadata)
+        self.saveMetaData = make_button("Save Metadata to Yaml", self.save_metadata, height=30, width=200)
 
-        tab4_layout.addWidget(microLabel)
-        tab4_layout.addWidget(self.microSelections)
-        tab4_layout.addWidget(lightLabel)
-        tab4_layout.addWidget(self.lightSelections)
-        tab4_layout.addWidget(objectiveLabel)
-        tab4_layout.addWidget(self.objectiveSelections)
-
-        tab4_layout.addLayout(hbox)
-        tab4_layout.addWidget(notesLabel)
-        tab4_layout.addWidget(self.metaNotes)
-        tab4_layout.addWidget(self.saveMetaData)
-        tab4_layout.addStretch(1)
+        tab4_layout = make_VBox([
+            make_label('User supplied metadata can be saved with button here, or alongside every image with a setting on the filenames tab', height=50, align='top'),
+            make_label('Microscope:', bold=True, height=30, align='bottom'),
+            self.microSelections,
+            make_label("Light source:", bold=True, height=30, align='bottom'),
+            self.lightSelections,
+            make_label('Microscope Objective:', bold=True, height=30, align='bottom'),
+            self.objectiveSelections,
+            make_HBox([
+                make_label("Using additional 1.5x tube lens?", bold=True),
+                self.tubeYes, 1]),
+            make_label('Notes (e.g. details about your sample):',
+                       height=30, align='bottom', bold=True),
+            self.metaNotes,
+            self.saveMetaData], tab4)
 
         #TODO: put this in a function and update when any metadata changes
         #package metadata for saving in tif tag "description"
@@ -433,119 +388,49 @@ class captureFrames(QtGui.QWidget):
 
 
         ################################
-        # Tab 5, place to enter metadata
+        # Tab 5, Overlays
         ################################
         tab5 = QtGui.QWidget()
-        tab5_layout = QtGui.QVBoxLayout(tab5)
-
-        sqtitle = QtGui.QLabel()
-        sqtitle.setText('Square:')
-        sqtitle.setFixedHeight(30)
-        sqtitle.setStyleSheet('font-weight:bold')
-        sqtitle.setWordWrap(True)
-        sqtitle.setAlignment(QtCore.Qt.AlignTop)
-
-        self.edgeLabel = QtGui.QLabel()
-        self.edgeLabel.setText("Edge Length (pixels):")
-        self.edgeEntry = QtGui.QLineEdit()
-
-        hbox4 = QtGui.QHBoxLayout()
-        hbox4.addWidget(self.edgeLabel)
-        hbox4.addWidget(self.edgeEntry)
 
 
-        self.cornerLabel = QtGui.QLabel()
-        self.cornerLabel.setText("Upper Left Corner Location (row, col):")
-        self.cornerRowEntry = QtGui.QLineEdit()
-        self.cornerColEntry = QtGui.QLineEdit()
+        self.edgeEntry = make_LineEdit(width=40)
 
-        hbox5 = QtGui.QHBoxLayout()
-        hbox5.addWidget(self.cornerLabel)
-        hbox5.addWidget(self.cornerRowEntry)
-        hbox5.addWidget(self.cornerColEntry)
+        def make_color_combobox():
+            return make_combobox(["Red", "Green", "Blue"], width=50, default=1)
 
-        self.sqcolor = QtGui.QComboBox()
-        self.sqcolor.addItem("Red")
-        self.sqcolor.addItem("Green")
-        self.sqcolor.addItem("Blue")
-        self.sqcolor.setCurrentIndex(1)
-        self.sqcolor.setFixedWidth(150)
+        def make_pixel_entry():
+            #TODO: do some kind of checking to make sure it is numeric
+            return make_LineEdit(width=37)
 
+        self.cornerRowEntry = make_pixel_entry()
+        self.cornerColEntry = make_pixel_entry()
+        self.sqcolor = make_color_combobox()
 
-        cirtitle = QtGui.QLabel()
-        cirtitle.setText('Circle:')
-        cirtitle.setFixedHeight(30)
-        cirtitle.setStyleSheet('font-weight:bold')
-        cirtitle.setWordWrap(True)
-        cirtitle.setAlignment(QtCore.Qt.AlignTop)
-
-
-
-        self.diamLabel = QtGui.QLabel()
-        self.diamLabel.setText("Diameter (pixels):")
         self.diamEntry = QtGui.QLineEdit()
-
-        hbox6 = QtGui.QHBoxLayout()
-        hbox6.addWidget(self.diamLabel)
-        hbox6.addWidget(self.diamEntry)
-
-
-        self.centerLabel = QtGui.QLabel()
-        self.centerLabel.setText("Center Location (row, col):")
-        self.centerRowEntry = QtGui.QLineEdit()
-        self.centerColEntry = QtGui.QLineEdit()
-
-        hbox7 = QtGui.QHBoxLayout()
-        hbox7.addWidget(self.centerLabel)
-        hbox7.addWidget(self.centerRowEntry)
-        hbox7.addWidget(self.centerColEntry)
-
-        self.circolor = QtGui.QComboBox()
-        self.circolor.addItem("Red")
-        self.circolor.addItem("Green")
-        self.circolor.addItem("Blue")
-        self.circolor.setCurrentIndex(1)
-        self.circolor.setFixedWidth(150)
+        self.centerRowEntry = make_pixel_entry()
+        self.centerColEntry = make_pixel_entry()
+        self.circolor = make_color_combobox()
 
 
 
-        gridtitle = QtGui.QLabel()
-        gridtitle.setText('Grid:')
-        gridtitle.setFixedHeight(30)
-        gridtitle.setStyleSheet('font-weight:bold')
-        gridtitle.setWordWrap(True)
-        gridtitle.setAlignment(QtCore.Qt.AlignTop)
+        self.meshSizeEntry = make_pixel_entry()
+        self.gridcolor = make_color_combobox()
 
-        self.meshLabel = QtGui.QLabel()
-        self.meshLabel.setText("Grid Square Size (pixels):")
-        self.meshSizeEntry = QtGui.QLineEdit()
+        tab5_layout = make_VBox([
+            make_label("Square", height=20, align='bottom', bold=True),
+            make_HBox(["Edge Length (pixels):", self.edgeEntry, 1]),
+            make_HBox(["Upper Left Corner Location (row, col):",
+                       self.cornerRowEntry, self.cornerColEntry, self.sqcolor]),
+            make_label("Circle:", bold=True, height=30, align='bottom'),
+            make_HBox(["Diameter (pixels):", self.diamEntry]),
+            make_HBox(["Center Location (row, col)", self.centerRowEntry,
+                       self.centerColEntry, self.circolor]),
+            make_label("Grid:", height=30, align='bottom', bold=True),
+            make_HBox(["Grid Square Size (pixels)", self.meshSizeEntry,
+                       self.gridcolor]),
+            1
+        ], tab5)
 
-        hbox8 = QtGui.QHBoxLayout()
-        hbox8.addWidget(self.meshLabel)
-        hbox8.addWidget(self.meshSizeEntry)
-
-        self.gridcolor = QtGui.QComboBox()
-        self.gridcolor.addItem("Red")
-        self.gridcolor.addItem("Green")
-        self.gridcolor.addItem("Blue")
-        self.gridcolor.setCurrentIndex(1)
-        self.gridcolor.setFixedWidth(150)
-
-
-        tab5_layout.addWidget(sqtitle)
-        tab5_layout.addLayout(hbox4)
-        tab5_layout.addLayout(hbox5)
-        tab5_layout.addWidget(self.sqcolor)
-        tab5_layout.addStretch(1)
-        tab5_layout.addWidget(cirtitle)
-        tab5_layout.addLayout(hbox6)
-        tab5_layout.addLayout(hbox7)
-        tab5_layout.addWidget(self.circolor)
-        tab5_layout.addStretch(1)
-        tab5_layout.addWidget(gridtitle)
-        tab5_layout.addLayout(hbox8)
-        tab5_layout.addWidget(self.gridcolor)
-        tab5_layout.addStretch(1)
 
         ################################################
 

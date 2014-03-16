@@ -41,7 +41,7 @@ def fill_layout(layout, items):
             layout.addWidget(item)
     return layout
 
-def make_button(label, callback, parent, shortcut=None, height=50, width=100,
+def make_button(label, callback, parent=None, shortcut=None, height=50, width=100,
                 tooltip=None):
     """
     Handle the common boilerplate for creating buttons
@@ -80,8 +80,8 @@ def make_checkbox(label, start_checked=False, callback=None):
         checkbox.stateChanged.connect(callback)
     return checkbox
 
-def make_combobox(items, callback, width=150, default=None):
-    box = QtGui.QComboBox()
+def make_combobox(items, callback=None, width=None, default=None, editable=False):
+    box = QtGui.QComboBox(editable=editable)
     for item in items:
         box.addItem(item)
     if default is not None:
