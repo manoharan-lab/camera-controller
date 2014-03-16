@@ -167,6 +167,14 @@ def textbox_float(textbox):
     return float(str(textbox.text()))
 
 def make_tabs(tabs):
+    """Make Qt tabbed panel
+
+    Parameters
+    ----------
+    tabs : [(string, [QtWidget])]
+        List of pairs of tab names with the contents for the tab. Tab contents
+        should be a list of QtWidgets, and will be placed in a vbox in the tab
+    """
     tab_widget = QtGui.QTabWidget()
     for name, content in tabs:
         tab = QtGui.QWidget()

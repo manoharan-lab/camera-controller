@@ -345,11 +345,6 @@ class captureFrames(QtGui.QWidget):
                  self.metaNotes,
                  self.saveMetaData])
 
-        #TODO: put this in a function and update when any metadata changes
-        #package metadata for saving in tif tag "description"
-        self.metadata = dict(microscope='george', wavelength='600', lightsource='white')
-        self.metadata = json.dumps(self.metadata)
-
 
         ################################
         # Tab 5, Overlays
@@ -488,7 +483,7 @@ class captureFrames(QtGui.QWidget):
                 self.freeze.toggle()
                 mkdir_p(self.save_directory())
                 for i in range(1, 1 + textbox_int(self.numOfFrames)):
-                    write_image(self.filename(), self.camera.get_image(i))
+                    write_image(self.filename(), self.camera.get_image(i), self.metadata)
                     increment_textbox(self.include_incrementing_image_num)
                 self.next_directory()
                 self.timeseries.setChecked(False)
@@ -528,7 +523,7 @@ class captureFrames(QtGui.QWidget):
 
     def save_series(self):
         for i in range(1, 1 + textbox_int(self.numOfFrames)):
-            write_image(self.filename(), self.camera.get_image(i))
+            write_image(self.filename(), self.camera.get_image(i), self.metadata)
             increment_textbox(self.include_incrementing_image_num)
 
     def save_directory(self, linewrap_for_gui=False):
@@ -563,7 +558,7 @@ class captureFrames(QtGui.QWidget):
     def save_image(self):
         self.last_save_was_series = False
         mkdir_p(self.save_directory())
-        write_image(self.filename(), self.image)
+        write_image(self.filename(), self.image, metadata = self.metadata)
         self.save.setChecked(False)
         if self.include_incrementing_image_num.isChecked():
             increment_textbox(self.include_incrementing_image_num)
@@ -577,8 +572,8 @@ class captureFrames(QtGui.QWidget):
             zero_textbox(self.include_incrementing_image_num)
 
 
-
-    def save_metadata(self):
+    @property
+    def metadata(self):
         metadata = {'microscope' : str(self.microSelections.currentText()),
                     'light' : str(self.lightSelections.currentText()),
                     'objective' : str(self.objectiveSelections.currentText()),
@@ -588,8 +583,10 @@ class captureFrames(QtGui.QWidget):
             metadata['tube-magnification'] = '1.5X'
         else:
             metadata['tube-magnification'] = '1.0X'
+        return metadata
 
-        open(self.metadata_filename, 'w').write(yaml.dump(metadata))
+    def save_metadata(self):
+        open(self.metadata_filename, 'w').write(yaml.dump(self.metadata))
 
 
     def live(self):
@@ -724,8 +721,9 @@ class captureFrames(QtGui.QWidget):
             self.livebutton.setChecked(True)
             self.live()
 
-def write_image(filename, image):
-    to_pil_image(image).save(filename, autoscale=False)
+def write_image(filename, image, metadata=None):
+    to_pil_image(image).save(filename, autoscale=False,
+                             tiffinfo={270 : json.dumps(metadata)})
 
 
 def to_pil_image(image):
