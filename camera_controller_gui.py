@@ -201,16 +201,10 @@ class captureFrames(QtGui.QWidget):
 
         ###################################################################
 
-        tab2title = QtGui.QLabel()
-        tab2title.setText('Modify camera settings')
-        tab2title.setAlignment(QtCore.Qt.AlignTop)
-        tab2title.setWordWrap(True)
-
+        cameras = ["Simulated"]
         if epix_available:
-            self.camera_choice = make_combobox(["Simulated", "Photon Focus"],
-                                               self.change_camera, default=1, width=150)
-        else:
-            self.camera_choice = make_combobox(["Simulated"], self.change_camera, width=150)
+            cameras = ["Photon Focus"] + cameras
+        self.camera_choice = make_combobox(cameras, self.change_camera, width=150)
         #self.bitdepth.activated[str].connect(self.reopen_camera)
 
 
@@ -220,35 +214,21 @@ class captureFrames(QtGui.QWidget):
         self.roi_size_choice = make_combobox(["1024 x 1024", "512 x 512",
                                               "256 x 256", "128 x 128", "64 x 64"],
                                              callback=self.reopen_camera, width=150)
-        self.roiSizeChoices = QtGui.QComboBox()
-        self.roiSizeChoices.addItem("1024 x 1024")
-        self.roiSizeChoices.addItem("512 x 512")
-        self.roiSizeChoices.addItem("256 x 256 ")
-        self.roiSizeChoices.addItem("128 x 128")
-        self.roiSizeChoices.addItem("64 x 64")
-        self.roiSizeChoices.setFixedWidth(150)
-        self.roiSizeChoices.activated[str].connect(self.reopen_camera)
-
-        roiLocLabel = QtGui.QLabel()
-        roiLocLabel.setFixedHeight(45)
-        roiLocLabel.setAlignment(QtCore.Qt.AlignBottom)
-        roiLocLabel.setText('ROI Location: \nTODO')
-        roiLocLabel.setStyleSheet('font-weight:bold')
-
         tab2 = QtGui.QWidget()
 
-        make_VBox([make_label("Camera:", bold=True),
-                   self.camera_choice,
-                   make_label("Bit Depth:", bold=True),
-                   self.bitdepth_choice,
-                   'Must match the data output type in PFRemote',
-                   make_label("Region of Interest Size:", bold=True,
-                               align='bottom', height=30),
-                   'Frame size in pixels. Default to maximum size.\nRegions are taken from top left.',
-                   self.roi_size_choice,
-                   make_label('ROI Location: \nTODO', bold=True, height=45, align='bottom'),
-                   1],
-                  tab2)
+        make_VBox([
+            "Modify Camera Settings",
+            make_label("Camera:", bold=True),
+            self.camera_choice,
+            make_label("Bit Depth:", bold=True),
+            self.bitdepth_choice,
+            'Must match the data output type in PFRemote',
+            make_label("Region of Interest Size:", bold=True,
+                       align='bottom', height=30),
+            'Frame size in pixels. Default to maximum size.\nRegions are taken from top left.',
+            self.roi_size_choice,
+            make_label('ROI Location: \nTODO', bold=True, height=45, align='bottom'),
+            1], tab2)
 
 
 
