@@ -41,7 +41,7 @@ and for timing long, slow time series captures.
 
 import sys
 import os
-from PyQt4 import QtGui, QtCore
+from PySide import QtGui, QtCore
 from PIL import Image
 
 from scipy.misc import toimage, fromimage, bytescale
@@ -590,6 +590,7 @@ class captureFrames(QtGui.QWidget):
         return metadata
 
     def save_metadata(self):
+        mkdir_p(self.save_directory())
         open(self.metadata_filename, 'w').write(yaml.dump(self.metadata))
 
 

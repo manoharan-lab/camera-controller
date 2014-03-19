@@ -1,4 +1,4 @@
-from PyQt4 import QtGui, QtCore
+from PySide import QtGui, QtCore
 
 QtAlignmentLookup = {}
 QtAlignmentLookup['top'] = QtCore.Qt.AlignTop
