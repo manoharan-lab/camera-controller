@@ -28,23 +28,27 @@ import numpy as np
 import os.path
 
 epix = windll.LoadLibrary("C:\Program Files\EPIX\XCLIB\XCLIBW64.dll")
+#epix = windll.LoadLibrary("C:\Program Files\EPIX\XCLIB\clserEPX_w64.dll")
 
-class PhotonFocusCamera(object):
+class Camera(object):
     def __init__(self):
         self.pixci_opened = False
         self.bit_depth = None
         self.roi_shape = None
-        self.open()
+        self.camera = None
 
-    def open(self, bit_depth=12, roi_shape=(1024, 1024)):
+        #self.open()
+
+    def open(self, bit_depth=8, roi_shape=(1024, 1024), camera=None):
         if self.pixci_opened:
             self.close()
 
         self.bit_depth = bit_depth
         self.roi_shape = roi_shape
+        self.camera = camera
 
-        filename = "PhotonFocus_{0}bit_{1}x{2}.fmt".format(self.bit_depth,
-                                                           *self.roi_shape)
+        filename = "{0}_{1}bit_{2}x{3}.fmt".format(self.camera,self.bit_depth,*self.roi_shape)
+
         formatfile = os.path.join("formatFiles", filename)
 
         i = epix.pxd_PIXCIopen("","", formatfile) # standard NTSC

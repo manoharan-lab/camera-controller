@@ -84,12 +84,9 @@ class captureFrames(QtGui.QWidget):
 
     def __init__(self):
         if epix_available:
-            self.camera = epix_framegrabber.PhotonFocusCamera()
+            self.camera = epix_framegrabber.Camera()
         else:
             self.camera = dummy_image_source.DummyCamera()
-        self.bit_depth = 12
-        self.roi_shape = (1024, 1024)
-        self.camera.open(self.bit_depth, self.roi_shape)
 
         super(captureFrames, self).__init__()
         self.initUI()
@@ -109,7 +106,6 @@ class captureFrames(QtGui.QWidget):
         #Timer is for updating for image display and text to user
         self.timerid = self.startTimer(30)  # event every x ms
 
-        self.image = np.random.random(self.roi_shape)*100
         self.cameraNum = 0  # to keep track of which camera is in use
 
         #display for image coming from camera
@@ -197,17 +193,17 @@ class captureFrames(QtGui.QWidget):
         ###################################################################
         cameras = ["Simulated"]
         if epix_available:
-            cameras = ["Photon Focus"] + cameras
+            cameras = ["PhotonFocus", "Basler"] + cameras
         self.camera_choice = make_combobox(cameras, self.change_camera, width=150)
-        #self.bitdepth.activated[str].connect(self.reopen_camera)
+   
+        self.bitdepth_choice = make_combobox(['temp'],
+                                            callback=self.revise_camera_settings, default=0, width=150)
 
+        self.roi_size_choice = make_combobox(["temp"],
+                                             callback=self.revise_camera_settings, default=0, width=150)
 
-        self.bitdepth_choice = make_combobox(['8 bit', '10 bit', '12 bit'],
-                                             self.reopen_camera, default=2, width=150)
-
-        self.roi_size_choice = make_combobox(["1024 x 1024", "512 x 512",
-                                              "256 x 256", "128 x 128", "64 x 64"],
-                                             callback=self.reopen_camera, width=150)
+        self.camera_choice.setCurrentIndex(1) #default to Basler on this computer
+        self.change_camera(self.camera_choice.currentText())
 
         tab2 = ("Camera",
                 ["Modify Camera Settings",
@@ -215,10 +211,10 @@ class captureFrames(QtGui.QWidget):
                  self.camera_choice,
                  make_label("Bit Depth:", bold=True),
                  self.bitdepth_choice,
-                 'Must match the data output type in PFRemote',
+                 "Must match the data output type in camera manufacturer's software",
                  make_label("Region of Interest Size:", bold=True,
                             align='bottom', height=30),
-                 'Frame size in pixels. Default to maximum size.\nRegions are taken from top left.',
+                 'Frame size in pixels. Default to maximum size.\nRegions are taken from top left.\nWant a different size? Make a new format file.',
                  self.roi_size_choice,
                  make_label('ROI Location: \nTODO', bold=True, height=45, align='bottom'), 1])
 
@@ -392,6 +388,7 @@ class captureFrames(QtGui.QWidget):
         #Text at bottom of screen
         self.imageinfo = QtGui.QLabel()
         self.imageinfo.setText('Max pixel value: '+str(0))
+        self.imageinfo.setFont("Arial") #monospaced font avoids flickering
         #self.imageinfo.setStyleSheet('font-weight:bold')
         self.imageinfo.setAlignment(QtCore.Qt.AlignBottom | QtCore.Qt.AlignLeft)
 
@@ -439,6 +436,7 @@ class captureFrames(QtGui.QWidget):
         self.setWindowTitle('Camera Controller')
         self.show()
 
+
     def timerEvent(self, event):
         #TODO: figure out why slowtimeseries button is not unchecking
         #after it finishes
@@ -457,13 +455,15 @@ class captureFrames(QtGui.QWidget):
         #show info about this image
         def set_imageinfo():
             maxval = self.image.max()
+            height = len(self.image)
+            width = np.size(self.image)/height
             portion = round(np.sum(self.image == maxval)/(1.0*np.size(self.image)),3)
             if self.divide_background.isChecked():
                 is_autoscaled=", Contrast Autoscaled"
             else:
                 is_autoscaled=""
             self.imageinfo.setText(
-                'Max pixel value: {}, Fraction at max: {}, Frame number in buffer: {}{}'.format(maxval, portion, frame_number, is_autoscaled))
+                'Size: {}x{}, Max pixel value: {}, Fraction at max: {}, Frame number in buffer: {}{}'.format(width,height,maxval, portion, frame_number, is_autoscaled))
 
         set_imageinfo()
 
@@ -648,22 +648,64 @@ class captureFrames(QtGui.QWidget):
                                                  "data", "[YOUR NAME]"))
 
 
-    def reopen_camera(self, size_str):
-        self.roi_shape = [int(i) for i in
-                      str(self.roiSizeChoices.currentText()).split(' x ')]
-        self.bit_depth = int(str(self.bitdepthChoices.currentText()).split()[0])
+    def revise_camera_settings(self):
+        self.camera.close()
 
-        self.camera.open(self.bit_depth, self.roi_shape)
+        if self.camera_choice.currentText() == "PhotonFocus":
+            self.camera = epix_framegrabber.Camera()
+        if self.camera_choice.currentText() == "Basler":
+            self.camera = epix_framegrabber.Camera()
+        if self.camera_choice.currentText() == "Simulated":
+            self.camera = epix_framegrabber.Camera()
+
+        self.roi_shape = [int(i) for i in
+                      str(self.roi_size_choice.currentText()).split(' x ')]
+        self.bit_depth = int(str(self.bitdepth_choice.currentText()).split()[0])
+        self.camera.open(self.bit_depth, self.roi_shape, self.camera_choice.currentText())
+
+        self.livebutton.toggle()
+        self.live()
+
+
+    def reopen_camera(self):
+        self.roi_shape = [int(i) for i in
+                      str(self.roi_size_choice.currentText()).split(' x ')]
+        self.bit_depth = int(str(self.bitdepth_choice.currentText()).split()[0])
+
+        self.camera.open(self.bit_depth, self.roi_shape, self.camera_choice.currentText())
 
         self.livebutton.toggle()
         self.live()
 
     def change_camera(self, camera_str):
-        self.camera.close()
-        if camera_str == "Photon Focus":
-            self.camera = epix_framegrabber.PhotonFocusCamera()
+        self.freeze.toggle()
+        if self.camera.pixci_opened:
+            self.camera.close()
+        #self.camera.close()
+        
+        self.bitdepth_choice.clear()
+        self.roi_size_choice.clear()
+
+        if camera_str == "PhotonFocus":
+            self.camera = epix_framegrabber.Camera()
+            self.bitdepth_choice.insertItem(0,"8 bit")
+            self.bitdepth_choice.insertItem(1,"10 bit")
+            self.bitdepth_choice.insertItem(2,"12 bit")
+            self.roi_size_choice.insertItem(0,"1024 x 1024")
+            self.roi_size_choice.insertItem(1,"512 x 512")
+            self.roi_size_choice.insertItem(2,"256 x 256")
+            self.roi_size_choice.insertItem(3,"128 x 128")
+            self.roi_size_choice.insertItem(4,"64 x 64")
+
+        if camera_str == "Basler":
+            self.camera = epix_framegrabber.Camera()
+            self.bitdepth_choice.insertItem(0,"8 bit")
+            self.roi_size_choice.insertItem(0,"1020 x 1020")
+
         if camera_str == "Simulate":
             self.camera = dummy_image_source.DummyCamera()
+
+        self.reopen_camera()
 
     def setROIx(self, x_pos):
         print('The ROI x-coordinate must be set to ', str(x_pos))
@@ -727,6 +769,8 @@ class captureFrames(QtGui.QWidget):
             self.live()
 
 def write_image(filename, image, metadata=None):
+    
+   # print image
     to_pil_image(image).save(filename, autoscale=False,
                              tiffinfo={270 : json.dumps(metadata)})
 
