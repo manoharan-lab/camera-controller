@@ -51,11 +51,11 @@ import yaml
 import json
 
 import dummy_image_source
+import epix_framegrabber
 try:
-    import epix_framegrabber
+    epix_framegrabber.Camera()
     epix_available = True
-except ImportError:
-    epix_framegrabber = None
+except epix_framegrabber.CameraOpenError:
     epix_available = False
 
 from utility import mkdir_p
@@ -202,8 +202,17 @@ class captureFrames(QtGui.QWidget):
         self.roi_size_choice = make_combobox(["temp"],
                                              callback=self.revise_camera_settings, default=0, width=150)
 
-        self.camera_choice.setCurrentIndex(1) #default to Basler on this computer
-        self.change_camera(self.camera_choice.currentText())
+        i = 0
+        opened = False
+        while i < len(cameras) and not opened:
+            self.camera_choice.setCurrentIndex(i)
+            try:
+                self.change_camera(self.camera_choice.currentText())
+                opened = True
+            except epix_framegrabber.CameraOpenError:
+                i = i+1
+        if not opened:
+            print("failed to open a camera")
 
         tab2 = ("Camera",
                 ["Modify Camera Settings",
