@@ -738,7 +738,7 @@ class captureFrames(QtGui.QWidget):
         return dict(Microscope = microName, Light = lightName, Objective = objName, TubeMagnification = tubestate, Notes = notes)
 
     def select_background(self):
-        stutus = 'stay frozen'
+        status = 'stay frozen'
         if self.livebutton.isChecked(): #pause live feed
             self.freeze.setChecked(True)
             self.live()
@@ -748,8 +748,8 @@ class captureFrames(QtGui.QWidget):
             filename = QtGui.QFileDialog.getOpenFileName(
                 self, "Choose a background File", ".",
                 "Tiff Images (*.tif *.tiff)")
-            self.background_image_filename.setText(filename)
-            im = fromimage(Image.open(str(filename)).convert('I'))
+            self.background_image_filename.setText(filename[0])
+            im = fromimage(Image.open(str(filename[0])).convert('I'))
             # We are going to want to divide py this so make sure it doesn't have
             # any pixels which are 0
             im[im == 0] = 1
