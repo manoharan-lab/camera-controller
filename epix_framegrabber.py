@@ -121,10 +121,11 @@ class Camera(object):
         return self.epix.pxd_goneLive(1) == 0
 
     def start_continuous_capture(self):
-        # here we keep a buffer 1000 long and capture 1000000 image.
-        # this is just a cludge to collect lots of images
-        # TODO: can we make this infinite?
-        self.epix.pxd_goLiveSeq(0x1,1,1000,1,1000000,1)
+        # This appears to give an infinitely long live seqence, however it 
+        # looks like it may do it by continually overwriting the same image in 
+        # the buffer, so it probably will not work if we want a rolling buffer
+        # tgd 2014-06-16
+        self.epix.pxd_goLive(0x1,1)
 
 
     def start_sequence_capture(self, n_frames):
