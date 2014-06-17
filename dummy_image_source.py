@@ -39,7 +39,7 @@ class DummyCamera(object):
         self.stop_frame = np.Inf
         pass
 
-    def open(self, bit_depth=12, roi_shape=1024):
+    def open(self, bit_depth=12, roi_shape=1024, name=None):
         self.bit_depth = bit_depth
         self.roi_shape = roi_shape
         pass

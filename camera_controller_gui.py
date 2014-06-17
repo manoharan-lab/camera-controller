@@ -678,7 +678,7 @@ class captureFrames(QtGui.QWidget):
 
     def reopen_camera(self):
         self.roi_shape = [int(i) for i in
-                      str(self.roi_size_choice.currentText()).split(' x ')]
+                          str(self.roi_size_choice.currentText()).split(' x ')]
         self.bit_depth = int(str(self.bitdepth_choice.currentText()).split()[0])
 
         self.camera.open(self.bit_depth, self.roi_shape, self.camera_choice.currentText())
@@ -711,8 +711,10 @@ class captureFrames(QtGui.QWidget):
             self.bitdepth_choice.insertItem(0,"8 bit")
             self.roi_size_choice.insertItem(0,"1020 x 1020")
 
-        if camera_str == "Simulate":
+        if camera_str == "Simulated":
             self.camera = dummy_image_source.DummyCamera()
+            self.bitdepth_choice.insertItem(0, "8 bit")
+            self.roi_size_choice.insertItem(0, "1024 x 1024")
 
         self.reopen_camera()
 

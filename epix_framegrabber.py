@@ -125,10 +125,13 @@ class Camera(object):
         # looks like it may do it by continually overwriting the same image in 
         # the buffer, so it probably will not work if we want a rolling buffer
         # tgd 2014-06-16
-        self.epix.pxd_goLive(0x1,1)
+        #self.epix.pxd_goLive(0x1,1)
+        # This needs to be 800 because for some reason timeseries fail after 800
+        self.epix.pxd_goLiveSeq(0x1,1,800,1,1000000,1)
 
 
     def start_sequence_capture(self, n_frames):
+        self.epix.pxd_goUnLive(0x1)
         self.epix.pxd_goLiveSeq(0x1,1,n_frames,1,n_frames,1)
 
     def stop_live_capture(self, ):
