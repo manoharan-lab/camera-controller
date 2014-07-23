@@ -140,6 +140,11 @@ class captureFrames(QtGui.QWidget):
         self.timeseries_slow.setStyleSheet("QPushButton:checked {background-color: green} QPushButton:pressed {background-color: green}")
         self.timeseries_slow.setCheckable(True)
 
+        self.save_buffer = make_button('Time machine!',
+                                        self.collectTimeSeries, self, QtGui.QKeySequence('f12'), width=200)
+        self.save_buffer.setStyleSheet("QPushButton:checked {background-color: green} QPushButton:pressed {background-color: green}")
+        self.save_buffer.setCheckable(True)
+
         make_control_group(self, [self.livebutton, self.freeze],
                            default=self.livebutton)
         #TODO: fix control group, should you be allowed to do multiple at once?
@@ -180,6 +185,8 @@ class captureFrames(QtGui.QWidget):
                             make_VBox([make_HBox([self.numOfFrames2, 'frames', 1]),
                                        make_HBox([self.interval, 'minutes apart', 1])])]),
                  1,
+                 "Save buffer",
+                 make_HBox([self.save_buffer, self.increment_dir_num]),
                  "Automatically Apply a background image \n(only for display, it still saves the raw images)",
                  make_HBox([self.applybackground, self.divide_background]),
                  self.background_image_filename,
@@ -199,7 +206,7 @@ class captureFrames(QtGui.QWidget):
         self.bitdepth_choice = make_combobox(['temp'],
                                             callback=self.revise_camera_settings, default=0, width=150)
 
-        self.roi_size_choice = make_combobox(["temp"],
+        self.roi_size_choice = make_combobox(['temp'],
                                              callback=self.revise_camera_settings, default=0, width=150)
 
         i = 0
@@ -445,7 +452,6 @@ class captureFrames(QtGui.QWidget):
         self.setWindowTitle('Camera Controller')
         self.show()
 
-
     def timerEvent(self, event):
         #TODO: figure out why slowtimeseries button is not unchecking
         #after it finishes
@@ -498,6 +504,20 @@ class captureFrames(QtGui.QWidget):
                 self.timeseries.setChecked(False)
                 self.livebutton.setChecked(True)
                 self.live()
+        
+        if self.save_buffer.isChecked():
+            time.sleep(0.1)
+            set_imageinfo()
+            self.freeze.setChecked(True)
+            mkdir_p(self.save_directory())
+            for i in range(self.camera.get_frame_number(), 1000)+range(0,self.camera.get_frame_number()):
+            #for i in range(1, 1 + textbox_int(self.numOfFrames)): # needs to save the whole buffer
+                write_image(self.filename(), self.camera.get_image(i), self.metadata)
+                increment_textbox(self.include_incrementing_image_num)
+            self.next_directory()
+            self.save_buffer.setChecked(False)
+            self.livebutton.setChecked(True)
+            self.live()
 
     @property
     def dtype(self):
@@ -615,7 +635,9 @@ class captureFrames(QtGui.QWidget):
 
 
     def collectTimeSeries(self):
-        if self.timeseries.isChecked() or self.timeseries_slow.isChecked():
+        if (self.timeseries.isChecked() 
+            or self.timeseries_slow.isChecked()
+            or self.save_buffer.isChecked()):
             # It doesn't make any sense to save a timeseries without
             # an incrementing number, so force this flag to be set
             self.include_incrementing_image_num.setChecked(True)
@@ -629,6 +651,8 @@ class captureFrames(QtGui.QWidget):
             self.camera.start_sequence_capture(numberOfImages)
         if self.timeseries_slow.isChecked():
             self.slowseries_start = time.time()
+        if self.save_buffer.isChecked():
+            print "I want to save the buffer."
 
 
 
@@ -781,7 +805,6 @@ class captureFrames(QtGui.QWidget):
 
 def write_image(filename, image, metadata=None):
     
-   # print image
     to_pil_image(image).save(filename, autoscale=False,
                              tiffinfo={270 : json.dumps(metadata)})
 
