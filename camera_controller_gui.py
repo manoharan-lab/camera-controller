@@ -172,6 +172,7 @@ class captureFrames(QtGui.QWidget):
         self.path = make_label("")
 
         tab1 = ("Image Capture",
+
                 [make_HBox([self.livebutton, self.freeze,1]),
                  1,
                 'Save image showing when clicked',
@@ -505,15 +506,21 @@ class captureFrames(QtGui.QWidget):
                 self.livebutton.setChecked(True)
                 self.live()
         
+        #for back-saving the contents of the rolling buffer
         if self.save_buffer.isChecked():
+            self.freeze.setChecked(True)
+            self.live() #this processes that the freeze button was checked
             time.sleep(0.1)
             set_imageinfo()
-            self.freeze.setChecked(True)
             mkdir_p(self.save_directory())
-            for i in range(self.camera.get_frame_number(), 1000)+range(0,self.camera.get_frame_number()):
-            #for i in range(1, 1 + textbox_int(self.numOfFrames)): # needs to save the whole buffer
+
+            lastframe = self.camera.get_frame_number()
+            print lastframe #number of last complete frame in 0-based system
+            for i in range(lastframe+2,1001) + range(1,lastframe+2): #chonological
                 write_image(self.filename(), self.camera.get_image(i), self.metadata)
+                print self.filename(), i
                 increment_textbox(self.include_incrementing_image_num)
+
             self.next_directory()
             self.save_buffer.setChecked(False)
             self.livebutton.setChecked(True)
@@ -629,8 +636,10 @@ class captureFrames(QtGui.QWidget):
         '''
         if self.livebutton.isChecked():
             self.camera.start_continuous_capture()
+            print 'starting live capture again'
         else:
             #on selecting "Freeze":
+            print 'frozen'
             self.camera.stop_live_capture()
 
 

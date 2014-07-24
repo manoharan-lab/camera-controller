@@ -115,7 +115,7 @@ class Camera(object):
         return im
 
     def get_frame_number(self):
-        return self.epix.pxd_capturedBuffer(1)-1
+        return self.epix.pxd_capturedBuffer(0x1,1)-1
 
     def finished_live_sequence(self):
         return self.epix.pxd_goneLive(1) == 0
@@ -125,9 +125,9 @@ class Camera(object):
         # looks like it may do it by continually overwriting the same image in 
         # the buffer, so it probably will not work if we want a rolling buffer
         # tgd 2014-06-16
+        # you can get the same effect by changing 1000000 to 0
         #self.epix.pxd_goLive(0x1,1)
-        # This needs to be 800 because for some reason timeseries fail after 800
-        self.epix.pxd_goLiveSeq(0x1,1,800,1,1000000,1)
+        self.epix.pxd_goLiveSeq(0x1,1,1000,1,1000000,1)
 
 
     def start_sequence_capture(self, n_frames):
@@ -135,4 +135,5 @@ class Camera(object):
         self.epix.pxd_goLiveSeq(0x1,1,n_frames,1,n_frames,1)
 
     def stop_live_capture(self, ):
+        print 'unlive now'
         self.epix.pxd_goUnLive(0x1)
