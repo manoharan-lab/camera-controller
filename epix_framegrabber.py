@@ -43,9 +43,6 @@ class Camera(object):
         self.camera = None
         self.epix = windll.LoadLibrary("C:\Program Files\EPIX\XCLIB\XCLIBW64.dll")
 
-
-        #self.open()
-
     def open(self, bit_depth=8, roi_shape=(1024, 1024), camera=None):
         if self.pixci_opened:
             self.close()
@@ -118,7 +115,7 @@ class Camera(object):
         return self.epix.pxd_capturedBuffer(0x1,1)-1
 
     def finished_live_sequence(self):
-        return self.epix.pxd_goneLive(1) == 0
+        return self.epix.pxd_goneLive(0x1) == 0
 
     def start_continuous_capture(self, buffersize):
         '''
@@ -132,9 +129,8 @@ class Camera(object):
         #self.epix.pxd_goLive(0x1,1)
         self.epix.pxd_goLiveSeq(0x1,1,buffersize,1,1000000,1)
 
-
     def start_sequence_capture(self, n_frames):
-        self.epix.pxd_goUnLive(0x1)
+        print 'sequence capture started'
         self.epix.pxd_goLiveSeq(0x1,1,n_frames,1,n_frames,1)
 
     def stop_live_capture(self, ):

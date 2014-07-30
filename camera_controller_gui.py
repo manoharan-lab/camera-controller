@@ -195,7 +195,6 @@ class captureFrames(QtGui.QWidget):
                  self.outfiletitle,
                  self.path, 1])
 
-
         ###################################################################
         # Tab 2, camera settings need to be set in Photon Focus remote too
 
@@ -240,7 +239,7 @@ class captureFrames(QtGui.QWidget):
         #########################################
         # Tab 3, Options for saving output files
         #########################################
-        ### File Name
+        # fileneame
         fileTypeLabel = make_label('Output File Format:', bold=True, height=30,
                                    align='bottom')
 
@@ -258,7 +257,6 @@ class captureFrames(QtGui.QWidget):
         self.include_incrementing_image_num = CheckboxGatedValue(
             "include an incrementing number, next is:", make_LineEdit('0000'),
             self.update_filename, True)
-
 
         # Directory
         self.browse = make_button("Browse", self.select_directory, self,
@@ -307,7 +305,6 @@ class captureFrames(QtGui.QWidget):
                  self.path_example,
                  1,
                  self.reset])
-
 
         # TODO: make this function get its values from the defaults we give things
         # self.resetSavingOptions() #should set file name
@@ -454,12 +451,7 @@ class captureFrames(QtGui.QWidget):
         self.show()
 
     def timerEvent(self, event):
-        #TODO: figure out why slowtimeseries button is not unchecking
-        #after it finishes
-
-        #print time.time()
         #obtain most recent image
-
         frame_number = self.camera.get_frame_number()
         self.image = self.camera.get_image()
 
@@ -518,7 +510,6 @@ class captureFrames(QtGui.QWidget):
             print lastframe #number of last complete frame in 0-based system
             for i in range(lastframe+2,textbox_int(self.buffersize)+1) + range(1,lastframe+2): #chonological
                 write_image(self.filename(), self.camera.get_image(i), self.metadata)
-                print self.filename(), i
                 increment_textbox(self.include_incrementing_image_num)
 
             self.next_directory()
@@ -637,7 +628,6 @@ class captureFrames(QtGui.QWidget):
             print 'starting live capture again'
         else:
             #on selecting "Freeze":
-            print 'frozen'
             self.camera.stop_live_capture()
 
     def collectTimeSeries(self):
@@ -805,6 +795,7 @@ class captureFrames(QtGui.QWidget):
             self.live()
 
 def write_image(filename, image, metadata=None):
+    print 'writing image: {}'.format(filename)
     to_pil_image(image).save(filename, autoscale=False,
                              tiffinfo={270 : json.dumps(metadata)})
 
