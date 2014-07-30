@@ -3,8 +3,9 @@ from PySide import QtGui, QtCore
 QtAlignmentLookup = {}
 QtAlignmentLookup['top'] = QtCore.Qt.AlignTop
 QtAlignmentLookup['bottom'] = QtCore.Qt.AlignBottom
+QtAlignmentLookup['middle'] = QtCore.Qt.AlignCenter
 
-def make_label(text, wordwrap=True, bold=False, height=None,
+def make_label(text, wordwrap=True, bold=False, height=None, width=None,
                align=None):
     label = QtGui.QLabel()
     label.setText(text)
@@ -14,6 +15,8 @@ def make_label(text, wordwrap=True, bold=False, height=None,
         label.setStyleSheet('font-weight:bold')
     if height:
         label.setFixedHeight(height)
+    if width:
+        label.setFixedWidth(width)
     if align:
         if not isinstance(align, QtCore.Qt.AlignmentFlag):
             align = QtAlignmentLookup[align]
@@ -102,7 +105,7 @@ def make_control_group(parent, buttons, exclusive=True, default=None):
     controlgroup.setExclusive(exclusive)
     return controlgroup
 
-def make_LineEdit(starting_text=None, callback=None, width=None):
+def make_LineEdit(starting_text=None, callback=None, width=None, align=None):
     line = QtGui.QLineEdit()
     if starting_text:
         line.setText(starting_text)
@@ -110,6 +113,10 @@ def make_LineEdit(starting_text=None, callback=None, width=None):
         line.setFixedWidth(width)
     if callback:
         line.textChanged.connect(callback)
+    if align:
+        if not isinstance(align, QtCore.Qt.AlignmentFlag):
+            align = QtAlignmentLookup[align]
+        line.setAlignment(align)
     return line
 
 class CheckboxGatedValue(QtGui.QHBoxLayout):

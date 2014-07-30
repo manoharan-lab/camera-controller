@@ -81,9 +81,9 @@ class captureFrames(QtGui.QWidget):
     '''
     Fill rolling buffer, then save individual frames or time series on command.
     '''
-    self.buffersize = 1000 #number of images kept in rolling buffer
 
     def __init__(self):
+
         if epix_available:
             self.camera = epix_framegrabber.Camera()
         else:
@@ -203,6 +203,8 @@ class captureFrames(QtGui.QWidget):
         cameras = ["Simulated"]
         if epix_available:
             cameras = ["PhotonFocus", "Basler"] + cameras
+
+        self.buffersize = make_LineEdit('1000',callback=self.revise_camera_settings,width=80) #number of images kept in rolling buffer
         self.camera_choice = make_combobox(cameras, self.change_camera, width=150)
         self.bitdepth_choice = make_combobox(['temp'],
                                             callback=self.revise_camera_settings, default=0, width=150)
@@ -232,7 +234,8 @@ class captureFrames(QtGui.QWidget):
                             align='bottom', height=30),
                  'Frame size in pixels. Default to maximum size.\nRegions are taken from top left.\nWant a different size? Make a new format file.',
                  self.roi_size_choice,
-                 make_label('ROI Location: \nTODO', bold=True, height=45, align='bottom'), 1])
+                 make_label('ROI Location: \nTODO', bold=True, height=45, align='bottom'),
+                 make_HBox([make_label('Rolling Buffer Size (# images):', bold=True, height=15, width=180, align='top'), self.buffersize, 1]),1])
 
         #########################################
         # Tab 3, Options for saving output files
@@ -513,7 +516,7 @@ class captureFrames(QtGui.QWidget):
 
             lastframe = self.camera.get_frame_number()
             print lastframe #number of last complete frame in 0-based system
-            for i in range(lastframe+2,self.buffersize+1) + range(1,lastframe+2): #chonological
+            for i in range(lastframe+2,textbox_int(self.buffersize)+1) + range(1,lastframe+2): #chonological
                 write_image(self.filename(), self.camera.get_image(i), self.metadata)
                 print self.filename(), i
                 increment_textbox(self.include_incrementing_image_num)
@@ -630,7 +633,7 @@ class captureFrames(QtGui.QWidget):
         Rolling repeating frame buffer.
         '''
         if self.livebutton.isChecked():
-            self.camera.start_continuous_capture(self.buffersize)
+            self.camera.start_continuous_capture(textbox_int(self.buffersize))
             print 'starting live capture again'
         else:
             #on selecting "Freeze":
