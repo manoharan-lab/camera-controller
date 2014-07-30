@@ -81,6 +81,7 @@ class captureFrames(QtGui.QWidget):
     '''
     Fill rolling buffer, then save individual frames or time series on command.
     '''
+    self.buffersize = 1000 #number of images kept in rolling buffer
 
     def __init__(self):
         if epix_available:
@@ -512,7 +513,7 @@ class captureFrames(QtGui.QWidget):
 
             lastframe = self.camera.get_frame_number()
             print lastframe #number of last complete frame in 0-based system
-            for i in range(lastframe+2,1001) + range(1,lastframe+2): #chonological
+            for i in range(lastframe+2,self.buffersize+1) + range(1,lastframe+2): #chonological
                 write_image(self.filename(), self.camera.get_image(i), self.metadata)
                 print self.filename(), i
                 increment_textbox(self.include_incrementing_image_num)
@@ -629,7 +630,7 @@ class captureFrames(QtGui.QWidget):
         Rolling repeating frame buffer.
         '''
         if self.livebutton.isChecked():
-            self.camera.start_continuous_capture()
+            self.camera.start_continuous_capture(self.buffersize)
             print 'starting live capture again'
         else:
             #on selecting "Freeze":

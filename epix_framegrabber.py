@@ -120,14 +120,17 @@ class Camera(object):
     def finished_live_sequence(self):
         return self.epix.pxd_goneLive(1) == 0
 
-    def start_continuous_capture(self):
+    def start_continuous_capture(self, buffersize):
+        '''
+        buffersize: number of frames to keep in rolling buffer
+        '''
         # This appears to give an infinitely long live seqence, however it 
         # looks like it may do it by continually overwriting the same image in 
         # the buffer, so it probably will not work if we want a rolling buffer
         # tgd 2014-06-16
         # you can get the same effect by changing 1000000 to 0
         #self.epix.pxd_goLive(0x1,1)
-        self.epix.pxd_goLiveSeq(0x1,1,1000,1,1000000,1)
+        self.epix.pxd_goLiveSeq(0x1,1,buffersize,1,1000000,1)
 
 
     def start_sequence_capture(self, n_frames):
