@@ -481,7 +481,7 @@ class captureFrames(QtGui.QWidget):
 
         if self.timeseries_slow.isChecked():
             if (textbox_int(self.include_incrementing_image_num) *
-                textbox_float(self.interval) * 60) <= time.time():
+                textbox_float(self.interval) * 60) <= time.time()-self.slowseries_start:
                 self.save_image()
             if textbox_int(self.include_incrementing_image_num) >= textbox_int(self.numOfFrames2):
                 self.timeseries_slow.setChecked(False)
