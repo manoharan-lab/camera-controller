@@ -203,10 +203,8 @@ class captureFrames(QtGui.QWidget):
         if epix_available:
             cameras = ["PhotonFocus", "Basler"] + cameras
         self.camera_choice = make_combobox(cameras, self.change_camera, width=150)
-   
         self.bitdepth_choice = make_combobox(['temp'],
                                             callback=self.revise_camera_settings, default=0, width=150)
-
         self.roi_size_choice = make_combobox(['temp'],
                                              callback=self.revise_camera_settings, default=0, width=150)
 
@@ -243,7 +241,6 @@ class captureFrames(QtGui.QWidget):
                                    align='bottom')
 
         self.outputformat = make_combobox(['.tif'], callback=self.update_filename, width=150)
-        ###
 
         self.include_filename_text = CheckboxGatedValue(
             "Include this text:", make_LineEdit("image"), self.update_filename,
@@ -309,8 +306,7 @@ class captureFrames(QtGui.QWidget):
 
 
         # TODO: make this function get its values from the defaults we give things
-#        self.resetSavingOptions() #should set file name
-
+        # self.resetSavingOptions() #should set file name
 
         ################################
         # Tab 4, place to enter metadata
@@ -479,7 +475,7 @@ class captureFrames(QtGui.QWidget):
             else:
                 is_autoscaled=""
             self.imageinfo.setText(
-                'Size: {}x{}, Max pixel value: {}, Fraction at max: {}, Frame number in buffer: {}{}'.format(width,height,maxval, portion, frame_number, is_autoscaled))
+                'Camera Controller Version 0.0.1, Image Size: {}x{}, Max pixel value: {}, Fraction at max: {}, Frame number in buffer: {}{}'.format(width,height,maxval, portion, frame_number, is_autoscaled))
 
         set_imageinfo()
 
@@ -607,7 +603,6 @@ class captureFrames(QtGui.QWidget):
             increment_textbox(self.include_incrementing_dir_num)
             zero_textbox(self.include_incrementing_image_num)
 
-
     @property
     def metadata(self):
         metadata = {'microscope' : str(self.microSelections.currentText()),
@@ -629,7 +624,6 @@ class captureFrames(QtGui.QWidget):
         mkdir_p(self.save_directory())
         open(self.metadata_filename, 'w').write(yaml.dump(self.metadata))
 
-
     def live(self):
         '''
         Rolling repeating frame buffer.
@@ -641,7 +635,6 @@ class captureFrames(QtGui.QWidget):
             #on selecting "Freeze":
             print 'frozen'
             self.camera.stop_live_capture()
-
 
     def collectTimeSeries(self):
         if (self.timeseries.isChecked() 
@@ -662,9 +655,6 @@ class captureFrames(QtGui.QWidget):
             self.slowseries_start = time.time()
         if self.save_buffer.isChecked():
             print "I want to save the buffer."
-
-
-
 
     def resetSavingOptions(self):
         self.outputformat.setCurrentIndex(0)
@@ -689,7 +679,6 @@ class captureFrames(QtGui.QWidget):
         self.root_save_path.setText(os.path.join("C:", "Users", "manoharanlab",
                                                  "data", "[YOUR NAME]"))
 
-
     def revise_camera_settings(self):
         self.camera.close()
 
@@ -707,7 +696,6 @@ class captureFrames(QtGui.QWidget):
 
         self.livebutton.toggle()
         self.live()
-
 
     def reopen_camera(self):
         self.roi_shape = [int(i) for i in
@@ -813,10 +801,8 @@ class captureFrames(QtGui.QWidget):
             self.live()
 
 def write_image(filename, image, metadata=None):
-    
     to_pil_image(image).save(filename, autoscale=False,
                              tiffinfo={270 : json.dumps(metadata)})
-
 
 def to_pil_image(image):
     if image.dtype == 'uint16':
