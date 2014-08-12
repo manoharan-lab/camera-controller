@@ -37,6 +37,7 @@ class DummyCamera(object):
         self.lastimage = None
         self.frame_number = 1
         self.stop_frame = np.Inf
+        self.pixci_opened = True
         pass
 
     def open(self, bit_depth=12, roi_shape=1024, name=None):
@@ -63,7 +64,7 @@ class DummyCamera(object):
     def get_frame_number(self):
         return self.frame_number
 
-    def start_continuous_capture(self):
+    def start_continuous_capture(self, buffersize):
         self.frame_number = 1
         self.live = True
         self.stop_frame = np.inf

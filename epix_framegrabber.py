@@ -23,7 +23,6 @@ Higher Level interface to the epix framegrabber
 .. moduleauthor:: Thomas G. Dimiduk <tom@dimiduk.net>
 .. moduleauthor:: Rebecca W. Perry <perry.becca@gmail.com>
 """
-from ctypes import c_ubyte, windll, sizeof, c_ushort
 import numpy as np
 import os.path
 
@@ -41,6 +40,10 @@ class Camera(object):
         self.bit_depth = None
         self.roi_shape = None
         self.camera = None
+        try:
+            from ctypes import c_ubyte, windll, sizeof, c_ushort
+        except ImportError:
+            raise CameraOpenError("Import failed")
         self.epix = windll.LoadLibrary("C:\Program Files\EPIX\XCLIB\XCLIBW64.dll")
 
     def open(self, bit_depth=8, roi_shape=(1024, 1024), camera=None):
@@ -101,11 +104,11 @@ class Camera(object):
 
         cam_read(0x1, buffer_number, 0, 0, -1, ydim, c_buf,
                            c_buf_size, "Gray")
-                           
+
         im = np.frombuffer(c_buf, c_type).reshape([xdim, ydim])
         if self.bit_depth > 8:
-            # We have to return a 16 bit image, use the upper bits so that 
-            # outputs look nicer (max pixel intensity will be interpreted as 
+            # We have to return a 16 bit image, use the upper bits so that
+            # outputs look nicer (max pixel intensity will be interpreted as
             # white by image viewers)
             im = im * 2**(16-self.bit_depth)
 
@@ -121,8 +124,8 @@ class Camera(object):
         '''
         buffersize: number of frames to keep in rolling buffer
         '''
-        # This appears to give an infinitely long live seqence, however it 
-        # looks like it may do it by continually overwriting the same image in 
+        # This appears to give an infinitely long live seqence, however it
+        # looks like it may do it by continually overwriting the same image in
         # the buffer, so it probably will not work if we want a rolling buffer
         # tgd 2014-06-16
         # you can get the same effect by changing 1000000 to 0
