@@ -43,6 +43,7 @@ import sys
 import os
 from PySide import QtGui, QtCore
 from PIL import Image
+import h5py
 
 from scipy.misc import toimage, fromimage, bytescale
 import numpy as np
@@ -490,9 +491,10 @@ class captureFrames(QtGui.QWidget):
                 set_imageinfo()
                 self.freeze.toggle()
                 mkdir_p(self.save_directory())
-                for i in range(1, 1 + textbox_int(self.numOfFrames)):
-                    write_image(self.filename(), self.camera.get_image(i), self.metadata)
-                    increment_textbox(self.include_incrementing_image_num)
+
+                write_timeseries(self.filename(), range(1, 1 + textbox_int(self.numOfFrames)), self.metadata, self)
+
+                increment_textbox(self.include_incrementing_image_num)
                 self.next_directory()
                 self.timeseries.setChecked(False)
                 self.livebutton.setChecked(True)
@@ -507,10 +509,13 @@ class captureFrames(QtGui.QWidget):
             mkdir_p(self.save_directory())
 
             lastframe = self.camera.get_frame_number()
-            print lastframe #number of last complete frame in 0-based system
-            for i in range(lastframe+2,textbox_int(self.buffersize)+1) + range(1,lastframe+2): #chonological
-                write_image(self.filename(), self.camera.get_image(i), self.metadata)
-                increment_textbox(self.include_incrementing_image_num)
+
+            imagenums = []
+            for i in range(lastframe+2,textbox_int(self.buffersize)+1) + range(1,lastframe+2): 
+                #chonological
+                imagenums.append(i)
+
+            write_timeseries(self.filename(), imagenums, self.metadata, self)
 
             self.next_directory()
             self.save_buffer.setChecked(False)
@@ -548,11 +553,6 @@ class captureFrames(QtGui.QWidget):
 
         self.frame.setPixmap(myScaledPixmap)
 
-    def save_series(self):
-        for i in range(1, 1 + textbox_int(self.numOfFrames)):
-            write_image(self.filename(), self.camera.get_image(i), self.metadata)
-            increment_textbox(self.include_incrementing_image_num)
-
     def save_directory(self, linewrap_for_gui=False):
         root = str(self.root_save_path.text())
         if linewrap_for_gui and len(root) > 25:
@@ -569,7 +569,7 @@ class captureFrames(QtGui.QWidget):
         return os.path.join(self.save_directory(linewrap_for_gui), filename)
 
     def filename(self, linewrap_for_gui=False):
-        return self.base_filename(linewrap_for_gui) + '.tif'
+        return self.base_filename(linewrap_for_gui)
 
     @property
     def metadata_filename(self, linewrap_for_gui=False):
@@ -579,13 +579,15 @@ class captureFrames(QtGui.QWidget):
         #update QLabel with example filename
         self.path.setText(self.filename(linewrap_for_gui=True))
         self.path_example.setText(self.filename(linewrap_for_gui=True))
-        if os.path.isfile(self.filename()):
+        if os.path.isfile(self.filename() + '.tif'):
             self.path.setText('DANGER: SET TO OVERWRITE DATA, CHANGE FILENAME')
 
     def save_image(self):
         self.last_save_was_series = False
         mkdir_p(self.save_directory())
-        write_image(self.filename(), self.image, metadata = self.metadata)
+
+        write_image(self.filename()+'.tif', self.image, metadata = self.metadata)
+        
         self.save.setChecked(False)
         if self.include_incrementing_image_num.isChecked():
             increment_textbox(self.include_incrementing_image_num)
@@ -793,6 +795,32 @@ class captureFrames(QtGui.QWidget):
         if status == 'return to live':
             self.livebutton.setChecked(True)
             self.live()
+
+def write_timeseries(filename, imageNums, metadata=None, self=None):
+    #write_single "thumbmail" image for the first frame
+    write_image(filename+'.tif',self.camera.get_image(imageNums[0]), metadata=metadata)
+    print 'saving time series'
+
+    f = h5py.File(filename+'.h5','w')
+    j = 0
+    for i in imageNums:
+        store_image(f,str(j),i,self)
+        print 'saving image: '+ str(i)
+        j += 1
+    f.close()
+
+    #TODO: spawn a process to do something like this:
+    #f.create_dataset('all',(1024,1024,num_images),compression='gzip',chunks=(16,16,num_images))
+    #for all the images
+    #for i in imageNums:
+    #    f['all'][:,:,i-1] = f[str(i)][...]
+    #then delete individual images
+
+    #TODO: metadata
+
+def store_image(fileobj, datasetname, imageNum, self):
+    fileobj.create_dataset(datasetname, data=self.camera.get_image(imageNum))
+
 
 def write_image(filename, image, metadata=None):
     print 'writing image: {}'.format(filename)
