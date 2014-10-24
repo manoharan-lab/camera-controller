@@ -84,6 +84,11 @@ class Camera(object):
             return
 
     def get_image(self, buffer_number=None):
+        try:
+            from ctypes import c_ubyte, windll, sizeof, c_ushort
+        except ImportError:
+            raise CameraOpenError("Import failed")
+
         if buffer_number is None:
             buffer_number = self.epix.pxd_capturedBuffer(1)
         # TODO: can we use the locally stored values for these? Or is
