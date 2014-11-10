@@ -44,6 +44,7 @@ import os
 from PySide import QtGui, QtCore
 from PIL import Image
 import h5py
+from multiprocessing import Process
 
 from scipy.misc import toimage, fromimage, bytescale
 import numpy as np
@@ -53,6 +54,7 @@ import json
 
 import dummy_image_source
 import epix_framegrabber
+from compress_h5 import compress_h5
 try:
     epix_framegrabber.Camera()
     epix_available = True
@@ -499,7 +501,7 @@ class captureFrames(QtGui.QWidget):
                 self.timeseries.setChecked(False)
                 self.livebutton.setChecked(True)
                 self.live()
-        
+
         #for back-saving the contents of the rolling buffer
         if self.save_buffer.isChecked():
             self.freeze.setChecked(True)
@@ -511,7 +513,7 @@ class captureFrames(QtGui.QWidget):
             lastframe = self.camera.get_frame_number()
 
             imagenums = []
-            for i in range(lastframe+2,textbox_int(self.buffersize)+1) + range(1,lastframe+2): 
+            for i in range(lastframe+2,textbox_int(self.buffersize)+1) + range(1,lastframe+2):
                 #chonological
                 imagenums.append(i)
 
@@ -587,7 +589,7 @@ class captureFrames(QtGui.QWidget):
         mkdir_p(self.save_directory())
 
         write_image(self.filename()+'.tif', self.image, metadata = self.metadata)
-        
+
         self.save.setChecked(False)
         if self.include_incrementing_image_num.isChecked():
             increment_textbox(self.include_incrementing_image_num)
@@ -633,7 +635,7 @@ class captureFrames(QtGui.QWidget):
             self.camera.stop_live_capture()
 
     def collectTimeSeries(self):
-        if (self.timeseries.isChecked() 
+        if (self.timeseries.isChecked()
             or self.timeseries_slow.isChecked()
             or self.save_buffer.isChecked()):
             # It doesn't make any sense to save a timeseries without
@@ -708,7 +710,7 @@ class captureFrames(QtGui.QWidget):
         if self.camera.pixci_opened:
             self.camera.close()
         #self.camera.close()
-        
+
         self.bitdepth_choice.clear()
         self.roi_size_choice.clear()
 
@@ -801,7 +803,8 @@ def write_timeseries(filename, imageNums, metadata=None, self=None):
     write_image(filename+'.tif',self.camera.get_image(imageNums[0]), metadata=metadata)
     print 'saving time series'
 
-    f = h5py.File(filename+'.h5','w')
+    uncompressed_name = filename+'.uncompressed.h5'
+    f = h5py.File(uncompressed_name,'w')
     j = 0
     for i in imageNums:
         store_image(f,str(j),i,self)
@@ -809,12 +812,8 @@ def write_timeseries(filename, imageNums, metadata=None, self=None):
         j += 1
     f.close()
 
-    #TODO: spawn a process to do something like this:
-    #f.create_dataset('all',(1024,1024,num_images),compression='gzip',chunks=(16,16,num_images))
-    #for all the images
-    #for i in imageNums:
-    #    f['all'][:,:,i-1] = f[str(i)][...]
-    #then delete individual images
+    p = Process(target=compress_h5, args=(uncompressed_name, True))
+    p.start()
 
     #TODO: metadata
 
