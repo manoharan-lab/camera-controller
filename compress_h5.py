@@ -69,6 +69,7 @@ def compress_h5(name, delete=False, progress=False):
             buffer[...,i] = inf[str(block*chunk+i)]
         outf['images'][...,block*chunk:] = buffer
 
+    inf.close()
     if delete:
         os.remove(name)
     outf.close()
