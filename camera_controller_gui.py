@@ -55,6 +55,7 @@ import json
 import dummy_image_source
 import epix_framegrabber
 from compress_h5 import compress_h5
+from glob import glob
 try:
     epix_framegrabber.Camera()
     epix_available = True
@@ -255,7 +256,7 @@ class captureFrames(QtGui.QWidget):
             "include date", lambda : time.strftime("%Y-%m-%d_"),
             callback=self.update_filename)
         self.include_current_time = CheckboxGatedValue(
-            "include time", lambda : time.strftime("%H_%M_%S"),
+            "include time", lambda : time.strftime("%H_%M_%S_"),
             callback=self.update_filename)
         self.include_incrementing_image_num = CheckboxGatedValue(
             "include an incrementing number, next is:", make_LineEdit('0000'),
@@ -316,12 +317,13 @@ class captureFrames(QtGui.QWidget):
         # Tab 4, place to enter metadata
         ################################
         self.microSelections = make_combobox(["Uberscope", "Mgruberscope",
-                                              "George", "Superscope",
+                                              "George", "Superscope", "iSCAT",
                                               "Other (edit to specify)"],
                                              width=250,
                                              editable=True)
 
         self.lightSelections = make_combobox(["660 nm Red Laser",
+                                              "405 nm Violet Laser",
                                               "White LED Illuminator",
                                               "Nikon White Light",
                                               "Dic", "Other (edit to specify)"],
@@ -546,7 +548,8 @@ class captureFrames(QtGui.QWidget):
             # something we can show on the screen
             im = im / 2**8
         im = to_pil_image(im)
-        data = im.convert("RGBA").tostring('raw', "RGBA")
+        #data = im.convert("RGBA").tostring('raw', "RGBA") #older version of PIL
+        data = im.convert("RGBA").tobytes('raw', "RGBA") #newer version of PIL
 
         qim = QtGui.QImage(data, self.roi_shape[0], self.roi_shape[1], QtGui.QImage.Format_ARGB32)
         pixmap = QtGui.QPixmap.fromImage(qim)
@@ -671,8 +674,6 @@ class captureFrames(QtGui.QWidget):
         #self.root_save_path.setText("/home/rperry/Desktop/camera/images")
         #self.root_save_path.setText("/Home/Desktop/camera")
 
-        #Aaron default
-        #self.root_save_path.setText("/home/agoldfain/Desktop")
         #superscope default:
         self.root_save_path.setText(os.path.join("C:", "Users", "manoharanlab",
                                                  "data", "[YOUR NAME]"))
@@ -713,29 +714,43 @@ class captureFrames(QtGui.QWidget):
 
         self.bitdepth_choice.clear()
         self.roi_size_choice.clear()
-
-        if camera_str == "PhotonFocus":
-            self.camera = epix_framegrabber.Camera()
-            self.bitdepth_choice.insertItem(0,"8 bit")
-            self.bitdepth_choice.insertItem(1,"10 bit")
-            self.bitdepth_choice.insertItem(2,"12 bit")
-            self.roi_size_choice.insertItem(0,"1024 x 1024")
-            self.roi_size_choice.insertItem(1,"512 x 512")
-            self.roi_size_choice.insertItem(2,"256 x 256")
-            self.roi_size_choice.insertItem(3,"128 x 128")
-            self.roi_size_choice.insertItem(4,"64 x 64")
-
-        if camera_str == "Basler":
-            self.camera = epix_framegrabber.Camera()
-            self.bitdepth_choice.insertItem(0,"8 bit")
-            self.roi_size_choice.insertItem(0,"1020 x 1020")
-
-        if camera_str == "Simulated":
-            self.camera = dummy_image_source.DummyCamera()
-            self.bitdepth_choice.insertItem(0, "8 bit")
-            self.roi_size_choice.insertItem(0, "1024 x 1024")
+        
+        self.get_bit_and_roi_choices(camera_str)
 
         self.reopen_camera()
+
+    def get_bit_and_roi_choices(self, camera_str):
+        #assumes the same ROIs are available for each bit depth and ROIs are square
+        bit_depths = []
+        ROI_sizes = []
+        if camera_str == "Simulated":
+            self.camera = dummy_image_source.DummyCamera()
+            bit_depths.append(8)
+            ROI_sizes.append(1024) 
+
+
+        else:
+            if (camera_str == "PhotonFocus") or (camera_str == "Basler"):
+                self.camera = epix_framegrabber.Camera()
+            
+            #find format files and extract ROIs and bit depths
+            fmt_file_list = glob( os.path.join("formatFiles", camera_str+'_*.fmt') )
+            for fmt_filename in fmt_file_list:
+                filename_parsed = fmt_filename.split('_')
+                bit_depths.append( int( (filename_parsed[1]).split('b')[0] ))
+                ROI_sizes.append( int(((filename_parsed[2]).split('.')[0]).split('x')[0] ))
+
+            bit_depths = list(set(bit_depths)) #get rid of duplicates and sort
+            bit_depths.sort()
+            ROI_sizes = list(set(ROI_sizes))
+            ROI_sizes.sort()
+            ROI_sizes.reverse()
+            
+        for i in np.arange(len(bit_depths)):
+            self.bitdepth_choice.insertItem(i,str(bit_depths[i]) + " bit")
+        for i in np.arange(len(ROI_sizes)):
+            self.roi_size_choice.insertItem(i,str(ROI_sizes[i]) + " x " + str(ROI_sizes[i]))
+
 
     def setROIx(self, x_pos):
         print('The ROI x-coordinate must be set to ', str(x_pos))
@@ -808,7 +823,7 @@ def write_timeseries(filename, imageNums, metadata=None, self=None):
     j = 0
     for i in imageNums:
         store_image(f,str(j),i,self)
-        print 'saving image: '+ str(i)
+        #print 'saving image: '+ str(i)
         j += 1
     f.close()
 

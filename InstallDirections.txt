@@ -1,0 +1,69 @@
+This includes step by step directions for how to install this software on a Windows 7, 64-bit machine to work with a Photon Focus camera and an EPIX frame grabber.
+(includes some info from dependencies.txt and memory_notes.txt)
+
+Get the EPIX frame grabber working to display images from the camera and get the PFRemote software working to control the camera....
+
+1. Physically install the frame grabber (with your computer off and unplugged) and install the XCAP driver for the frame grabber here http://www.epixinc.com/support/files.php
+2. Restart Computer, open XCAP, use this product ID to setup XCAP-lite 58VU/Y7KV/N4ZU
+3. Install Photon Focus's PFRemote software here http://www.photonfocus.com/en/support/software/?no_cache=1
+4. For PFRemote to recognize the frame grabber, the appropriate clserEPX.dll file must be copied to the directory c:\Windows\System32\ (for 64bit XCAP and 64 bit PFRemote). The "appropriate" clserEPX.dll file is the API 1.1 version for x86_64 systems (64bit). See documentation here http://www.photonfocus.com/fileadmin/web/applicationnotes/AN0032_e_V1_0_PFRemoteSDK_and_Win64bit.pdf
+
+*NOTE* The EPIX frame grabber will not appear in the list of frame grabbers when PFRemte is opened if step 4 is not completed!
+
+*NOTE* For computers where another camera link frame grabber is installed (i.e. for the ANDOR Zyla) the clserEPX.dll file may need to be placed in a different directory. Find the directory that your other frame grabber's clser***.dll file is located in and copy the clserEPX.dll file into the same folder. For the computer with the the Andor Zyla camera, this folder is c:\BitFlow SKD 5.60\Bin64\
+
+You should now be able to use the XCAP software to view a live stream from the camera and the PFRemote software to set the camera parameters.
+
+Get python camera controller GUI working...
+
+1. Install Pixci XCLIB from here (64 bit) http://www.epixinc.com/support/files.php . 
+	Use the code VTON/XRJF/GSIN and use the default directories for everything.
+	Make sure that this file is here 'c:\program files\epix\xclib\xclibW64.dll'
+2. Install Anaconda based Python (we use Python 2.7) from here https://www.continuum.io/downloads
+	Install for current user only (The installer fails on 64-bit windows if you try to install it for all users).
+3. Add the package PySide by opening the Anaconda command prompt and running "conda install pyside"
+4. Download or clone the camera controller software from https://github.com/manoharan-lab/camera-controller
+5. Run the camera_controller_gui.py with the program 'C:\Users\manoharanlab\Anaconda2\Scripts\ipython2.exe' 
+
+You should now be able to use the camera control software to view images coming from the camera and save time series.
+However, only a small amount of the computer's RAM will be available to the frame grabber.
+
+Configure computer memory so large videos can be saved...
+See the PIXCI XCLIB reference manual for more details on this forced memory allocation.
+
+1. Type regedit into the start menu and open regedit.exe
+*navigate to HKEY_LOCAL_MACHINE -> SYSTEM -> CurrentControlSet -> services -> EPIXXCW64
+Edit -> New -> String Value with name PIXCI and data:
+-IA 4194304 -IM 61865984 -MB 1048576 -BH 1048576 -MU 0x01 -MU 0x03
+where -IA is for the number of KB for the OS (4 GB), -IM is the number KB for EPIXX (59 GB)
+DONT go into Enum
+
+2. Tell the computer to isolate some memory from windows to save it for the frame grabber by making a new boot loader and truncating the memory.
+*from the start menu, type "cmd", then right click on the cmd program to start it as an administrator
+List the boot loaders with the command:
+	bcdedit /enum
+Copy the current boot loader and rename it:
+	bcdedit /copy {current} /d "Windows7 [PIXCI==59G NT=4G"
+Again list the current boot loaders with the command, but with details:
+	bcdedit /enum /v
+Find the identifier for the new boot loader with the description "Windows7 [PIXCI==59G NT=4G"
+For me the identifier was {ef091aa6-1c49-11e6-bd71-f8b156cddbc6}
+Run the following command  to set the memory Windows gets. Replace <new_identifier> with the identifier value for the new boot loader:
+	bcdedit /set <new_identifier> truncatememory 4294967296
+Again, list the boot loaders with
+	bcdedit /enum /v
+The value of tuncatememory should be 0x100000000 for the 4GB (4294967296) value specified.
+
+3. Setup the boot sequence:
+Type msconfig in the start menu and run msconfig.exe
+Go the the *General* tab and make the following changes:
+	select: selective startup, check load system services, check load stertup items, DONT Use original boot configuration
+Go to the *Boot* tab and make the following changes
+select: the boot loader you created with bcdedit, select set as default
+click apply
+
+4. Restart the computer
+
+The operating system will now have 4GB of memory available and the frame grabber should have access to 59GB.
+
+
