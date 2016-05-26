@@ -114,7 +114,8 @@ class Camera(object):
         if self.bit_depth > 8:
             # We have to return a 16 bit image, use the upper bits so that
             # outputs look nicer (max pixel intensity will be interpreted as
-            # white by image viewers)
+            # white by image viewers). i.e. linearly rescale pixel values to
+            # a 16 bit scale : 0 to 65535. Note 65535 = (2**16 - 1).
             im = im * 2**(16-self.bit_depth)
 
         return im

@@ -36,6 +36,7 @@ See the PIXCI XCLIB reference manual for more details on this forced memory allo
 Edit -> New -> String Value with name PIXCI and data:
 -IA 4194304 -IM 61865984 -MB 1048576 -BH 1048576 -MU 0x01 -MU 0x03
 where -IA is for the number of KB for the OS (4 GB), -IM is the number KB for EPIXX (59 GB)
+******for 12-52 GB memory split use -IA 12582912 -IM 54525952 -MB 1048576 -BH 1048576 -MU 0x01 -MU 0x03 *************
 DONT go into Enum
 
 2. Tell the computer to isolate some memory from windows to save it for the frame grabber by making a new boot loader and truncating the memory.
@@ -50,6 +51,7 @@ Find the identifier for the new boot loader with the description "Windows7 [PIXC
 For me the identifier was {ef091aa6-1c49-11e6-bd71-f8b156cddbc6}
 Run the following command  to set the memory Windows gets. Replace <new_identifier> with the identifier value for the new boot loader:
 	bcdedit /set <new_identifier> truncatememory 4294967296
+	******for 12-52 GB memory split use bcdedit /set <new_identifier> truncatememory 12884901888 *************
 Again, list the boot loaders with
 	bcdedit /enum /v
 The value of tuncatememory should be 0x100000000 for the 4GB (4294967296) value specified.
@@ -65,5 +67,11 @@ click apply
 4. Restart the computer
 
 The operating system will now have 4GB of memory available and the frame grabber should have access to 59GB.
+
+NOTES on memory inputs:
+The -IA address is specified in kBytes. It should be equal to or greater than the value used for truncatememory, which was specified in Bytes. 1 kByte = 1024 Bytes. Or 4 GBytes = 4194304 kBytes = 4294967296 Bytes. This page is useful http://www.whatsabyte.com/P1/byteconverter.htm
+The -IM value is in kBytes. It should be the total system memory minus the -IA address, minus 1GB(to be safe).
+See the PIXCI E4 manual, Frame Buffer Memory Allocation Section for you approprate OS for more details. 
+http://www.epixinc.com/manuals/pixci_e14el/index.htm#3.8.2. Windows 7 32/64-Bit - Frame Buffer Memory Allocation
 
 

@@ -116,6 +116,7 @@ class captureFrames(QtGui.QWidget):
         #display for image coming from camera
         self.frame = QtGui.QLabel(self)
         self.frame.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignLeft)
+        
 
         #########################################
         # Tab 1, Main controls viewing/saving
@@ -166,8 +167,9 @@ class captureFrames(QtGui.QWidget):
         self.applybackground.setStyleSheet("QPushButton:checked {background-color: green} QPushButton:pressed {background-color: green}")
         self.background_image_filename = make_label("No background applied")
         self.background_image = None
-        self.divide_background = make_checkbox("Divide Background")
-
+        self.divide_background = make_checkbox("Divide\nBackground", callback = self.check_contrast_autoscale)
+        self.get_bkgd_from_file = make_checkbox("Get Background\nFrom File")
+        
         self.outfiletitle = QtGui.QLabel()
         self.outfiletitle.setText('Your next image will be saved as\n(use filenames tab to change):')
         self.outfiletitle.setFixedHeight(50)
@@ -194,7 +196,7 @@ class captureFrames(QtGui.QWidget):
                  "Save buffer",
                  make_HBox([self.save_buffer, self.increment_dir_num]),
                  "Automatically Apply a background image \n(only for display, it still saves the raw images)",
-                 make_HBox([self.applybackground, self.divide_background]),
+                 make_HBox([self.applybackground, self.divide_background, self.get_bkgd_from_file]),
                  self.background_image_filename,
                  self.outfiletitle,
                  self.path, 1])
@@ -411,6 +413,21 @@ class captureFrames(QtGui.QWidget):
         #self.imageinfo.setStyleSheet('font-weight:bold')
         self.imageinfo.setAlignment(QtCore.Qt.AlignBottom | QtCore.Qt.AlignLeft)
 
+        #contrast scaling stuff
+        self.contrastminlabel = QtGui.QLabel()
+        self.contrastminlabel.setText('Min Contrast Value:')
+        self.contrastminlabel.setFont("Arial") #monospaced font avoids flickering
+        self.contrastminlabel.setAlignment(QtCore.Qt.AlignBottom | QtCore.Qt.AlignLeft)
+        self.contrastmaxlabel = QtGui.QLabel()
+        self.contrastmaxlabel.setText('Max Contrast Value:')
+        self.contrastmaxlabel.setFont("Arial") #monospaced font avoids flickering
+        self.contrastmaxlabel.setAlignment(QtCore.Qt.AlignBottom | QtCore.Qt.AlignLeft)
+        self.minpixval = make_LineEdit('0', width=75)
+        self.maxpixval = make_LineEdit('255', width=75)
+        self.contrast_autoscale = make_checkbox("Autoscale Contrast")
+        self.contrast_default = make_button('Default Contrast', self.set_default_contrast, self, height = 20)
+
+
         self.sphObject = QtGui.QLabel(self)
         self.sphObject.setAlignment(QtCore.Qt.AlignBottom | QtCore.Qt.AlignLeft)
         self.sphObject.setTextInteractionFlags(QtCore.Qt.TextSelectableByMouse)
@@ -440,6 +457,15 @@ class captureFrames(QtGui.QWidget):
         contentbox.addWidget(self.frame) #image
         contentbox.addLayout(vbox)
 
+        contrastbox = QtGui.QHBoxLayout()
+        contrastbox.addWidget(self.contrastminlabel)
+        contrastbox.addWidget(self.minpixval)
+        contrastbox.addWidget(self.contrastmaxlabel)
+        contrastbox.addWidget(self.maxpixval)
+        contrastbox.addWidget(self.contrast_autoscale)
+        contrastbox.addWidget(self.contrast_default)
+        contrastbox.addStretch(1)
+        
         textbox = QtGui.QVBoxLayout()
         textbox.addWidget(self.imageinfo)
         textbox.addStretch(1)
@@ -447,6 +473,7 @@ class captureFrames(QtGui.QWidget):
         largevbox = QtGui.QVBoxLayout()
         largevbox.addLayout(contentbox)
         largevbox.addStretch(1)
+        largevbox.addLayout(contrastbox)
         largevbox.addLayout(textbox)
 
         self.setLayout(largevbox)
@@ -471,12 +498,14 @@ class captureFrames(QtGui.QWidget):
             height = len(self.image)
             width = np.size(self.image)/height
             portion = round(np.sum(self.image == maxval)/(1.0*np.size(self.image)),3)
-            if self.divide_background.isChecked():
+            if self.contrast_autoscale.isChecked():
                 is_autoscaled=", Contrast Autoscaled"
             else:
                 is_autoscaled=""
+                
             self.imageinfo.setText(
-                'Camera Controller Version 0.0.1, Image Size: {}x{}, Max pixel value: {}, Fraction at max: {}, Frame number in buffer: {}{}'.format(width,height,maxval, portion, frame_number, is_autoscaled))
+                'Camera Controller Version 0.0.1, Image Size: {}x{}, Max pixel value: {}, Fraction at max: {}, Frame number in buffer: {}{}'.format(width,height, maxval, portion, frame_number, is_autoscaled))
+
 
         set_imageinfo()
 
@@ -525,7 +554,17 @@ class captureFrames(QtGui.QWidget):
             self.save_buffer.setChecked(False)
             self.livebutton.setChecked(True)
             self.live()
+    
+    def set_default_contrast(self):
+        #resets image contrast to default
+        if self.bit_depth == 8:
+            maxval = 2**8-1
+        elif self.bit_depth > 8:
+            maxval = 2**16-1
+        self.minpixval.setText('0')
+        self.maxpixval.setText(str(maxval))
 
+    
     @property
     def dtype(self):
         if self.bit_depth == 8:
@@ -533,20 +572,25 @@ class captureFrames(QtGui.QWidget):
         else:
             return 'uint16'
 
+    def check_contrast_autoscale(self):
+        self.contrast_autoscale.setChecked(True)
     def showImage(self):
         #https://github.com/shuge/Enjoy-Qt-Python-Binding/blob/master/image/display_img/pil_to_qpixmap.py
         #myQtImage = ImageQt(im)
         #qimage = QtGui.QImage(myQtImage)
         im = self.image
+       
         if (self.divide_background.isChecked() and
             self.background_image is not None):
             im = np.true_divide(im, self.background_image)
-            im = bytescale(im)
-        elif self.bit_depth > 8:
-            # if we ask the camera for more than 8 bits, we will get a 16 bit
-            # image that uses the upper bits, so discard the lower 8 bits to get
-            # something we can show on the screen
-            im = im / 2**8
+        if self.contrast_autoscale.isChecked():
+            self.minpixval.setText(str( np.round(im.min(),3) ))
+            self.maxpixval.setText(str( np.round(im.max(),3) ))
+            
+        minval = float(self.minpixval.text())
+        maxval = float(self.maxpixval.text())
+        im = bytescale(im, minval, maxval)
+
         im = to_pil_image(im)
         #data = im.convert("RGBA").tostring('raw', "RGBA") #older version of PIL
         data = im.convert("RGBA").tobytes('raw', "RGBA") #newer version of PIL
@@ -690,11 +734,15 @@ class captureFrames(QtGui.QWidget):
 
         self.roi_shape = [int(i) for i in
                       str(self.roi_size_choice.currentText()).split(' x ')]
+        old_bit_depth = self.bit_depth
         self.bit_depth = int(str(self.bitdepth_choice.currentText()).split()[0])
+        if self.bit_depth != old_bit_depth:
+            self.set_default_contrast()
         self.camera.open(self.bit_depth, self.roi_shape, self.camera_choice.currentText())
-
+    
         self.livebutton.toggle()
         self.live()
+
 
     def reopen_camera(self):
         self.roi_shape = [int(i) for i in
@@ -774,29 +822,38 @@ class captureFrames(QtGui.QWidget):
         return dict(Microscope = microName, Light = lightName, Objective = objName, TubeMagnification = tubestate, Notes = notes)
 
     def select_background(self):
-        status = 'stay frozen'
-        if self.livebutton.isChecked(): #pause live feed
-            self.freeze.setChecked(True)
-            self.live()
-            status = 'return to live'
+
 
         if self.applybackground.isChecked():
-            filename = QtGui.QFileDialog.getOpenFileName(
-                self, "Choose a background File", ".",
-                "Tiff Images (*.tif *.tiff)")
+            if self.get_bkgd_from_file.isChecked():
+                status = 'stay frozen'
+                if self.livebutton.isChecked(): #pause live feed
+                    self.freeze.setChecked(True)
+                    self.live()
+                    status = 'return to live'
+
+                filename = QtGui.QFileDialog.getOpenFileName(
+                    self, "Choose a background File", ".",
+                    "Tiff Images (*.tif *.tiff)")
+                im = fromimage(Image.open(str(filename[0])).convert('I'))
+                
+                if status == 'return to live':
+                    self.livebutton.setChecked(True)
+                    self.live()    
+                
+            else:
+                filename = ["Background Set from Buffer"]
+                im = self.image
             self.background_image_filename.setText(filename[0])
-            im = fromimage(Image.open(str(filename[0])).convert('I'))
-            # We are going to want to divide py this so make sure it doesn't have
+            # We are going to want to divide by this so make sure it doesn't have
             # any pixels which are 0
             im[im == 0] = 1
             self.background_image = im
             self.divide_background.setChecked(True)
+            self.contrast_autoscale.setChecked(True)
         else:
             self.divide_background.setChecked(False)
 
-        if status == 'return to live':
-            self.livebutton.setChecked(True)
-            self.live()
 
     def select_directory(self):
         status = 'stay frozen'
