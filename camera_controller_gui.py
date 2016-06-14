@@ -54,6 +54,7 @@ import json
 
 import dummy_image_source
 import epix_framegrabber
+import thorcam_fs
 from compress_h5 import compress_h5
 from glob import glob
 try:
@@ -61,6 +62,11 @@ try:
     epix_available = True
 except epix_framegrabber.CameraOpenError:
     epix_available = False
+try:
+    thorcam_fs.Camera()
+    thorcamfs_available = True
+except thorcam_fs.CameraOpenError:
+    thorcamfs_available = False
 
 from utility import mkdir_p
 from QtConvenience import (make_label, make_HBox, make_VBox,
@@ -90,6 +96,8 @@ class captureFrames(QtGui.QWidget):
 
         if epix_available:
             self.camera = epix_framegrabber.Camera()
+        elif thorcamfs_available:
+            self.camera = thorcam_fs.Camera()
         else:
             self.camera = dummy_image_source.DummyCamera()
 
@@ -206,8 +214,11 @@ class captureFrames(QtGui.QWidget):
 
         ###################################################################
         cameras = ["Simulated"]
+        if thorcamfs_available:
+            cameras = ["ThorCam_FS"]+ cameras
         if epix_available:
             cameras = ["PhotonFocus", "Basler"] + cameras
+
 
         self.buffersize = make_LineEdit('1000',callback=self.revise_camera_settings,width=80) #number of images kept in rolling buffer
         self.camera_choice = make_combobox(cameras, self.change_camera, width=150)
@@ -215,6 +226,17 @@ class captureFrames(QtGui.QWidget):
                                             callback=self.revise_camera_settings, default=0, width=150)
         self.roi_size_choice = make_combobox(['temp'],
                                              callback=self.revise_camera_settings, default=0, width=150)
+        self.roi_pos_choicex = make_LineEdit('0',width=60)
+        self.roi_pos_choicey = make_LineEdit('0',width=60)
+        self.roi_pos_choicex.editingFinished.connect(self.change_roi_pos)
+        self.roi_pos_choicey.editingFinished.connect(self.change_roi_pos)
+        self.posx_inc_but = make_button("+", self.roi_posx_inc, width = 20, height = 20)
+        self.posx_dec_but = make_button("-", self.roi_posx_dec, width = 20, height = 20)
+        self.posy_inc_but = make_button("+", self.roi_posy_inc, width = 20, height = 20)
+        self.posy_dec_but = make_button("-", self.roi_posy_dec, width = 20, height = 20)
+        
+        self.exposure = make_LineEdit('NA',width=80)
+        self.exposure.editingFinished.connect(self.change_exposure)
 
         i = 0
         opened = False
@@ -239,8 +261,13 @@ class captureFrames(QtGui.QWidget):
                             align='bottom', height=30),
                  'Frame size in pixels. Default to maximum size.\nRegions are taken from top left.\nWant a different size? Make a new format file.',
                  self.roi_size_choice,
-                 make_label('ROI Location: \nTODO', bold=True, height=45, align='bottom'),
-                 make_HBox([make_label('Rolling Buffer Size (# images):', bold=True, height=15, width=180, align='top'), self.buffersize, 1]),1])
+                 make_HBox([make_label('X ', bold=True, height=15, align='top'), self.roi_pos_choicex,
+                            make_VBox([self.posx_inc_but, self.posx_dec_but,1]), 
+                            make_label('Y ', bold=True, height=15, align='top'), self.roi_pos_choicey, 
+                            make_VBox([self.posy_inc_but, self.posy_dec_but,1]), 1]),
+                 make_HBox([make_label('Rolling Buffer Size (# images):', bold=True, height=15, width=180, align='top'), self.buffersize, 1]),
+                 make_HBox([make_label('Exposure Time (ms):', bold=True, height=15, align='top'), self.exposure, 1]),
+                 1])
 
         #########################################
         # Tab 3, Options for saving output files
@@ -589,7 +616,7 @@ class captureFrames(QtGui.QWidget):
             
         minval = float(self.minpixval.text())
         maxval = float(self.maxpixval.text())
-        im = bytescale(im, minval, maxval)
+        im = bytescale(im.astype(np.int8), minval, maxval)
 
         im = to_pil_image(im)
         #data = im.convert("RGBA").tostring('raw', "RGBA") #older version of PIL
@@ -723,14 +750,17 @@ class captureFrames(QtGui.QWidget):
                                                  "data", "[YOUR NAME]"))
 
     def revise_camera_settings(self):
-        self.camera.close()
+        camera_str =  self.camera_choice.currentText()
 
-        if self.camera_choice.currentText() == "PhotonFocus":
+
+        '''if self.camera_choice.currentText() == "PhotonFocus":
             self.camera = epix_framegrabber.Camera()
         if self.camera_choice.currentText() == "Basler":
             self.camera = epix_framegrabber.Camera()
+        if self.camera_choice.currentText() == "ThorCam_FS":
+            self.camera = thorcam_fs.Camera()
         if self.camera_choice.currentText() == "Simulated":
-            self.camera = epix_framegrabber.Camera()
+            self.camera = epix_framegrabber.Camera()'''
 
         self.roi_shape = [int(i) for i in
                       str(self.roi_size_choice.currentText()).split(' x ')]
@@ -738,30 +768,91 @@ class captureFrames(QtGui.QWidget):
         self.bit_depth = int(str(self.bitdepth_choice.currentText()).split()[0])
         if self.bit_depth != old_bit_depth:
             self.set_default_contrast()
-        self.camera.open(self.bit_depth, self.roi_shape, self.camera_choice.currentText())
+            
+        if camera_str == "PhotonFocus" or camera_str == "Basler" or camera_str == "Simulated": #for cameras that can't change these dynamically
+            self.camera.close()
+            self.camera = epix_framegrabber.Camera()
+            self.camera.open(self.bit_depth, self.roi_shape, camera = self.camera_choice.currentText())
+        elif camera_str == "ThorCam_FS": #for cameras that can change dynamically
+            self.camera.set_bit_depth(self.bit_depth)
+            self.camera.set_roi_shape(self.roi_shape)
+            self.change_roi_pos()
     
         self.livebutton.toggle()
         self.live()
+    
+    def change_exposure(self):
+        if hasattr(self.camera, 'set_exposure'):
+            if str(self.exposure.text()) == 'NA':
+                target_exposure = 0.01
+            else:
+                target_exposure = textbox_float(self.exposure)
+            self.camera.set_exposure(target_exposure)
+            exposure_str=str( np.round(self.camera.exposure,3) )
+        else:
+            exposure_str = 'NA'
+        self.exposure.setText(exposure_str)
+    
+    def change_roi_pos(self):
+        if hasattr(self.camera, 'set_roi_pos'):
+            self.camera.set_roi_pos([textbox_int(self.roi_pos_choicex), textbox_int(self.roi_pos_choicey)])
+            x_pos_str = str(self.camera.roi_pos[0])
+            y_pos_str = str(self.camera.roi_pos[1]) 
+        else:
+            x_pos_str = '0'
+            y_pos_str = '0'           
+        self.roi_pos_choicex.setText(x_pos_str)
+        self.roi_pos_choicey.setText(y_pos_str)
 
+        self.change_exposure() # exposure should be updated after ROI is changed
+            
+    def roi_posx_inc(self):
+        new_pos = textbox_int(self.roi_pos_choicex)+10
+        self.roi_pos_choicex.setText(str(new_pos))        
+        self.change_roi_pos()        
 
+    def roi_posx_dec(self):
+        new_pos = textbox_int(self.roi_pos_choicex)-10
+        self.roi_pos_choicex.setText(str(new_pos))        
+        self.change_roi_pos()
+
+    def roi_posy_inc(self):
+        new_pos = textbox_int(self.roi_pos_choicey)+10
+        self.roi_pos_choicey.setText(str(new_pos))        
+        self.change_roi_pos()        
+
+    def roi_posy_dec(self):
+        new_pos = textbox_int(self.roi_pos_choicey)-10
+        self.roi_pos_choicey.setText(str(new_pos))        
+        self.change_roi_pos()
+        
     def reopen_camera(self):
         self.roi_shape = [int(i) for i in
                           str(self.roi_size_choice.currentText()).split(' x ')]
         self.bit_depth = int(str(self.bitdepth_choice.currentText()).split()[0])
 
-        self.camera.open(self.bit_depth, self.roi_shape, self.camera_choice.currentText())
+        self.camera.open(self.bit_depth, self.roi_shape, camera = self.camera_choice.currentText())
+        if hasattr(self.camera, 'exposure'):
+            self.exposure.setText(str( np.round(self.camera.exposure,3) ))
 
         self.livebutton.toggle()
         self.live()
 
     def change_camera(self, camera_str):
         self.freeze.toggle()
-        if self.camera.pixci_opened:
-            self.camera.close()
-        #self.camera.close()
+        #if self.camera.pixci_opened:
+         #   self.camera.close()
+        self.camera.close()
 
         self.bitdepth_choice.clear()
         self.roi_size_choice.clear()
+        
+        if camera_str == "Simulated":
+            self.camera = dummy_image_source.DummyCamera()        
+        elif (camera_str == "PhotonFocus") or (camera_str == "Basler"):
+            self.camera = epix_framegrabber.Camera()
+        elif camera_str == "ThorCam_FS":
+            self.camera = thorcam_fs.Camera()
         
         self.get_bit_and_roi_choices(camera_str)
 
@@ -772,15 +863,11 @@ class captureFrames(QtGui.QWidget):
         bit_depths = []
         ROI_sizes = []
         if camera_str == "Simulated":
-            self.camera = dummy_image_source.DummyCamera()
             bit_depths.append(8)
             ROI_sizes.append(1024) 
 
 
-        else:
-            if (camera_str == "PhotonFocus") or (camera_str == "Basler"):
-                self.camera = epix_framegrabber.Camera()
-            
+        elif (camera_str == "PhotonFocus") or (camera_str == "Basler"):            
             #find format files and extract ROIs and bit depths
             fmt_file_list = glob( os.path.join("formatFiles", camera_str+'_*.fmt') )
             for fmt_filename in fmt_file_list:
@@ -793,6 +880,11 @@ class captureFrames(QtGui.QWidget):
             ROI_sizes = list(set(ROI_sizes))
             ROI_sizes.sort()
             ROI_sizes.reverse()
+        elif camera_str == "ThorCam_FS":
+            bit_depths.append(8)
+            ROI_sizes = range(20,1020,20)
+            ROI_sizes.append(1024)
+            ROI_sizes.reverse()
             
         for i in np.arange(len(bit_depths)):
             self.bitdepth_choice.insertItem(i,str(bit_depths[i]) + " bit")
@@ -800,11 +892,6 @@ class captureFrames(QtGui.QWidget):
             self.roi_size_choice.insertItem(i,str(ROI_sizes[i]) + " x " + str(ROI_sizes[i]))
 
 
-    def setROIx(self, x_pos):
-        print('The ROI x-coordinate must be set to ', str(x_pos))
-
-    def setROIy(self, y_pos):
-        print('The ROI y-coordinate must be set to ', str(y_pos))
 
     def createYaml(self):
 
