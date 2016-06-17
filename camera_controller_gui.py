@@ -235,8 +235,12 @@ class captureFrames(QtGui.QWidget):
         self.posy_inc_but = make_button("+", self.roi_posy_inc, width = 20, height = 20)
         self.posy_dec_but = make_button("-", self.roi_posy_dec, width = 20, height = 20)
         
-        self.exposure = make_LineEdit('NA',width=80)
+        self.exposure = make_LineEdit('NA',width=60)
         self.exposure.editingFinished.connect(self.change_exposure)
+        self.frametime = make_LineEdit('NA',width=60)
+        self.frametime.editingFinished.connect(self.change_frametime)
+        self.framerate = make_LineEdit('NA',width=60)
+        self.framerate.editingFinished.connect(self.change_framerate)
 
         i = 0
         opened = False
@@ -267,6 +271,8 @@ class captureFrames(QtGui.QWidget):
                             make_VBox([self.posy_inc_but, self.posy_dec_but,1]), 1]),
                  make_HBox([make_label('Rolling Buffer Size (# images):', bold=True, height=15, width=180, align='top'), self.buffersize, 1]),
                  make_HBox([make_label('Exposure Time (ms):', bold=True, height=15, align='top'), self.exposure, 1]),
+                 make_HBox([make_label('Frame Time (ms):', bold=True, height=15, align='top'), self.frametime,
+                            make_label('Frame Rate (Hz):', bold=True, height=15, align='top'), self.framerate, 1]),
                  1])
 
         #########################################
@@ -616,7 +622,9 @@ class captureFrames(QtGui.QWidget):
             
         minval = float(self.minpixval.text())
         maxval = float(self.maxpixval.text())
-        im = bytescale(im.astype(np.int8), minval, maxval)
+        if im.dtype==np.uint8:
+            im = im.astype(np.int8)
+        im = bytescale(im, minval, maxval)
 
         im = to_pil_image(im)
         #data = im.convert("RGBA").tostring('raw', "RGBA") #older version of PIL
@@ -792,6 +800,29 @@ class captureFrames(QtGui.QWidget):
         else:
             exposure_str = 'NA'
         self.exposure.setText(exposure_str)
+
+    def change_frametime(self):
+        if hasattr(self.camera, 'set_frametime'):
+            if str(self.frametime.text()) == 'NA':
+                target_frametime = 0.0
+            else:
+                target_frametime = textbox_float(self.frametime)
+            self.camera.set_frametime(target_frametime)
+            frametime_str = str( np.round(self.camera.frametime,3) )
+            framerate_str = str( np.round(1.0/(self.camera.frametime/1000.0),3) )
+        else:
+            frametime_str = 'NA'
+            framerate_str = 'NA'
+            
+        self.frametime.setText(frametime_str)
+        self.framerate.setText(framerate_str)
+    
+    
+    def change_framerate(self):
+        new_framerate = textbox_float(self.framerate)
+        if new_framerate == 0: new_framerate = 100000.0
+        self.frametime.setText( str(np.round(1.0/new_framerate*1000.0,3)) )
+        self.change_frametime()
     
     def change_roi_pos(self):
         if hasattr(self.camera, 'set_roi_pos'):
@@ -804,7 +835,8 @@ class captureFrames(QtGui.QWidget):
         self.roi_pos_choicex.setText(x_pos_str)
         self.roi_pos_choicey.setText(y_pos_str)
 
-        self.change_exposure() # exposure should be updated after ROI is changed
+        self.change_frametime() # frametime should be updated after ROI is changed
+        self.change_exposure() # exposure should be updated after ROI and frametime are changed
             
     def roi_posx_inc(self):
         new_pos = textbox_int(self.roi_pos_choicex)+10
@@ -834,6 +866,9 @@ class captureFrames(QtGui.QWidget):
         self.camera.open(self.bit_depth, self.roi_shape, camera = self.camera_choice.currentText())
         if hasattr(self.camera, 'exposure'):
             self.exposure.setText(str( np.round(self.camera.exposure,3) ))
+            
+        if hasattr(self.camera, 'frametime'):
+            self.frametime.setText(str( np.round(self.camera.frametime,3) ))
 
         self.livebutton.toggle()
         self.live()

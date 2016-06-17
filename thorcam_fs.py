@@ -46,8 +46,9 @@ class Camera(object):
         self.uc480 = windll.LoadLibrary('C:\\Program Files\\Thorlabs\\Scientific Imaging\\ThorCam\\uc480_64.dll')
         self.exposure = None
         self.roi_pos = None
+        self.frametime = None
 
-    def open(self, bit_depth=8, roi_shape=(1024, 1024), roi_pos=(0,0), camera=None, exposure = 0.01):
+    def open(self, bit_depth=8, roi_shape=(1024, 1024), roi_pos=(0,0), camera=None, exposure = 0.01, frametime = 10.0):
         self.bit_depth = bit_depth
         self.roi_shape = roi_shape
         self.camera = camera
@@ -67,8 +68,8 @@ class Camera(object):
             
             self.uc480.is_SetColorMode(self.handle, 6) # 6 is for monochrome 8 bit. See uc480.h for definitions
             self.set_roi_shape(self.roi_shape)
-            print(self.roi_pos, '!!!!!!!!!!!!!!!!!!!!!!!!!!!!', roi_pos)
             self.set_roi_pos(self.roi_pos)
+            self.set_frametime(frametime)
             self.set_exposure(exposure)
         else:
             raise CameraOpenError("Opening the ThorCam failed with error code "+str(i))
@@ -76,6 +77,7 @@ class Camera(object):
 
     def close(self):
         if self.handle != None:
+            self.stop_live_capture()
             i = self.uc480.is_ExitCamera(self.handle) 
             if i == 0:
                 print("ThorCam closed successfully.")
@@ -89,8 +91,8 @@ class Camera(object):
         #if buffer_number is None:
         #    buffer_number = self.epix.pxd_capturedBuffer(1)
 
-        self.uc480.is_FreezeVideo(self.handle, 1) #1 means wait for capture to finish before continuing.
         im = np.frombuffer(self.meminfo[0], c_ubyte).reshape(self.roi_shape[1], self.roi_shape[0])
+
         
         return im
 
@@ -106,17 +108,12 @@ class Camera(object):
         return 0
 
     def start_continuous_capture(self, buffersize):
-                #not implemented for thorcam_fs 
+
         '''
         buffersize: number of frames to keep in rolling buffer
         '''
-        # This appears to give an infinitely long live seqence, however it
-        # looks like it may do it by continually overwriting the same image in
-        # the buffer, so it probably will not work if we want a rolling buffer
-        # tgd 2014-06-16
-        # you can get the same effect by changing 1000000 to 0
-        #self.epix.pxd_goLive(0x1,1)
-        #self.epix.pxd_goLiveSeq(0x1,1,buffersize,1,1000000,1)
+
+        self.uc480.is_CaptureVideo(self.handle, 1)
 
     def start_sequence_capture(self, n_frames):
         #not implemented for thorcam_fs 
@@ -127,6 +124,7 @@ class Camera(object):
         #not implemented for thorcam_fs 
         print 'unlive now'
         #self.epix.pxd_goUnLive(0x1)
+        self.uc480.is_StopLiveVideo(self.handle, 1)
         
     def initialize_memory(self):
         if self.meminfo != None:
@@ -181,9 +179,22 @@ class Camera(object):
             print("Set ThorCam ROI size failed with error code "+str(i))
     
     def set_exposure(self, exposure):
+        #exposure should be given in ms
         exposure_c = c_double(exposure)
         is_Exposure = self.uc480.is_Exposure
         is_Exposure.argtypes = [c_int, c_uint, POINTER(c_double), c_uint]
         is_Exposure(self.handle, 12 , exposure_c, 8) #12 is for setting exposure
         self.exposure = exposure_c.value
+    
+    def set_frametime(self, frametime):
+        #must reset exposure after setting framerate
+        #frametime should be givin in ms. Framerate = 1/frametime
+        is_SetFrameRate = self.uc480.is_SetFrameRate 
         
+        if frametime == 0: frametime = 0.001
+        
+        set_framerate = c_double(0)
+        is_SetFrameRate.argtypes = [c_int, c_double, POINTER(c_double)]
+        is_SetFrameRate(self.handle, 1.0/(frametime/1000.0), byref(set_framerate))
+        self.frametime = (1.0/set_framerate.value*1000.0)
+

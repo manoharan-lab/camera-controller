@@ -32,7 +32,7 @@ stop_frame = np.Inf
 class DummyCamera(object):
     def __init__(self):
         self.bit_depth = None
-        self.roi_shape = None
+        self.roi_shape = [1024,1024]
         self.live = True
         self.lastimage = None
         self.frame_number = 1
@@ -40,7 +40,7 @@ class DummyCamera(object):
         self.pixci_opened = True
         pass
 
-    def open(self, bit_depth=12, roi_shape=1024, name=None):
+    def open(self, bit_depth=12, roi_shape=([1024,1024]), camera=None):
         self.bit_depth = bit_depth
         self.roi_shape = roi_shape
         pass
