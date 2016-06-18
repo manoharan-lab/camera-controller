@@ -40,22 +40,27 @@ class Camera(object):
         self.bit_depth = None
         self.roi_shape = None
         self.camera = None
+        self.exposure = None
+        self.roi_pos = None
+        self.frametime = None
         try:
             from ctypes import c_ubyte, windll, sizeof, c_ushort
         except ImportError:
             raise CameraOpenError("Import failed")
         self.epix = windll.LoadLibrary("C:\Program Files\EPIX\XCLIB\XCLIBW64.dll")
 
-    def open(self, bit_depth=8, roi_shape=(1024, 1024), camera=None):
+    def open(self, bit_depth=8, roi_shape=(1024, 1024), roi_pos = (0,0), camera=None, exposure = 0, frametime = 0):
         if self.pixci_opened:
             self.close()
 
         self.bit_depth = bit_depth
         self.roi_shape = roi_shape
         self.camera = camera
+        self.roi_pos = roi_pos
+        self.exposure = exposure
+        self.frametime = frametime
 
         filename = "{0}_{1}bit_{2}x{3}.fmt".format(self.camera,self.bit_depth,*self.roi_shape)
-
         formatfile = os.path.join("formatFiles", filename)
 
         i = self.epix.pxd_PIXCIopen("","", formatfile) # standard NTSC
@@ -145,3 +150,17 @@ class Camera(object):
     def stop_live_capture(self, ):
         print 'unlive now'
         self.epix.pxd_goUnLive(0x1)
+        
+        
+    def set_roi_pos(self, set_roi_pos):
+        #not yet implemented
+        self.roi_pos = [0, 0]
+
+    
+    def set_exposure(self, exposure):
+        #not yet implemented
+        self.exposure = 0
+    
+    def set_frametime(self, frametime):
+        #not yet implemented
+        self.frametime = 0

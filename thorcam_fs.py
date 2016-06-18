@@ -18,8 +18,10 @@
 # You should have received a copy of the GNU General Public License
 # along with HoloPy.  If not, see <http://www.gnu.org/licenses/>.
 """
-Higher Level interface to Thorlabs usb cameras. This does not have the ablility to save images/videos or capture
-sequences of frames. It is a basic interface to control the camera and get an image from it.
+Higher Level interface to Thorlabs usb cameras and thorlabs piezo stage driver (KPZ101). 
+This does not have the ablility to save images/videos or capture sequences of frames. 
+It is a basic interface to control the camera and get an image from it.
+
 
 .. moduleauthor:: Aaron M. Goldfain <agoldfain@seas.harvard.edu>
 """
@@ -38,17 +40,25 @@ class CameraOpenError(Exception):
 
 class Camera(object):
     def __init__(self):
-        self.bit_depth = None
-        self.roi_shape = None
-        self.camera = None
-        self.handle = None
-        self.meminfo = None
-        self.uc480 = windll.LoadLibrary('C:\\Program Files\\Thorlabs\\Scientific Imaging\\ThorCam\\uc480_64.dll')
-        self.exposure = None
-        self.roi_pos = None
-        self.frametime = None
+        uc480_file = 'C:\\Program Files\\Thorlabs\\Scientific Imaging\\ThorCam\\uc480_64.dll'
+        piezo_dm_file = 'C:\\Program Files\\Thorlabs\\Kinesis\\Thorlabs.MotionControl.DeviceManager.dll'
+        piezo_file = 'C:\\Program Files\\Thorlabs\\Kinesis\\Thorlabs.MotionControl.KCube.Piezo.dll'
+        if os.path.isfile(uc480_file) and os.path.isfile(piezo_dm_file) and os.path.isfile(piezo_file):        
+            self.bit_depth = None
+            self.roi_shape = None
+            self.camera = None
+            self.handle = None
+            self.meminfo = None
+            self.exposure = None
+            self.roi_pos = None
+            self.frametime = None
+            self.uc480 = windll.LoadLibrary(uc480_file)
+            dm = windll.LoadLibrary(piezo_dm_file)
+            self.piezo = windll.LoadLibrary(piezo_file)
+        else:
+            raise CameraOpenError("ThorCam and Focus Stabilization drivers not available.")
 
-    def open(self, bit_depth=8, roi_shape=(1024, 1024), roi_pos=(0,0), camera=None, exposure = 0.01, frametime = 10.0):
+    def open(self, bit_depth=8, roi_shape=(1024, 1024), roi_pos=(0,0), camera="ThorCam FS", exposure = 0.01, frametime = 10.0):
         self.bit_depth = bit_depth
         self.roi_shape = roi_shape
         self.camera = camera
@@ -107,7 +117,7 @@ class Camera(object):
         #return self.epix.pxd_goneLive(0x1) == 0
         return 0
 
-    def start_continuous_capture(self, buffersize):
+    def start_continuous_capture(self, buffersize = None):
 
         '''
         buffersize: number of frames to keep in rolling buffer
@@ -121,7 +131,6 @@ class Camera(object):
         #self.epix.pxd_goLiveSeq(0x1,1,n_frames,1,n_frames,1)
 
     def stop_live_capture(self, ):
-        #not implemented for thorcam_fs 
         print 'unlive now'
         #self.epix.pxd_goUnLive(0x1)
         self.uc480.is_StopLiveVideo(self.handle, 1)
@@ -157,7 +166,7 @@ class Camera(object):
         self.roi_shape = [AOI_size.s32Width, AOI_size.s32Height]
         
         if i == 0:
-            print("ThorCam ROI set successfully.")
+            print("ThorCam ROI size set successfully.")
             self.initialize_memory()
         else:
             print("Set ThorCam ROI size failed with error code "+str(i))
@@ -174,7 +183,7 @@ class Camera(object):
         self.roi_pos = [AOI_pos.s32X, AOI_pos.s32Y]
         
         if i == 0:
-            print("ThorCam ROI set successfully.")
+            print("ThorCam ROI position set successfully.")
         else:
             print("Set ThorCam ROI size failed with error code "+str(i))
     

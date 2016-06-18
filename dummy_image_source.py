@@ -38,11 +38,17 @@ class DummyCamera(object):
         self.frame_number = 1
         self.stop_frame = np.Inf
         self.pixci_opened = True
+        self.camera = None
         pass
 
-    def open(self, bit_depth=12, roi_shape=([1024,1024]), camera=None):
+    def open(self, bit_depth=12, roi_shape=([1024,1024]), roi_pos = (0,0), camera=None, exposure = 0, frametime = 0):
         self.bit_depth = bit_depth
         self.roi_shape = roi_shape
+        self.camera = camera
+        self.roi_pos = roi_pos
+        self.exposure = exposure
+        self.frametime = frametime
+        
         pass
 
     def close(self):
@@ -79,3 +85,15 @@ class DummyCamera(object):
 
     def finished_live_sequence(self):
         return self.frame_number >= self.stop_frame
+        
+    def set_roi_pos(self, set_roi_pos):
+        #not yet implemented
+        self.roi_pos = [0, 0]
+    
+    def set_exposure(self, exposure):
+        #not yet implemented
+        self.exposure = 0
+    
+    def set_frametime(self, frametime):
+        #not yet implemented
+        self.frametime = 0

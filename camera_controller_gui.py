@@ -96,11 +96,12 @@ class captureFrames(QtGui.QWidget):
 
         if epix_available:
             self.camera = epix_framegrabber.Camera()
-        elif thorcamfs_available:
-            self.camera = thorcam_fs.Camera()
         else:
             self.camera = dummy_image_source.DummyCamera()
-
+        if thorcamfs_available:
+            self.camera_fs = thorcam_fs.Camera()
+            self.camera_fs.open(bit_depth=8, roi_shape=(1024, 1024), roi_pos=(0,0), camera="ThorCam FS", exposure = 0.01, frametime = 10.0)
+            self.camera_fs.start_continuous_capture()
         super(captureFrames, self).__init__()
         self.initUI()
         # we have to set this text after the internals are initialized since the filename is constructed from widget values
@@ -186,9 +187,7 @@ class captureFrames(QtGui.QWidget):
 
         self.path = make_label("")
 
-        tab1 = ("Image Capture",
-
-                [make_HBox([self.livebutton, self.freeze,1]),
+        tab1_item_list = [make_HBox([self.livebutton, self.freeze,1]),
                  1,
                 'Save image showing when clicked',
                  make_HBox([self.save, self.increment_dir_num]),
@@ -207,21 +206,26 @@ class captureFrames(QtGui.QWidget):
                  make_HBox([self.applybackground, self.divide_background, self.get_bkgd_from_file]),
                  self.background_image_filename,
                  self.outfiletitle,
-                 self.path, 1])
-
+                 self.path]
+                 
+        tab1 = ("Image Capture", tab1_item_list+[1])
+        
+        
         ###################################################################
         # Tab 2, camera settings need to be set in Photon Focus remote too
 
         ###################################################################
         cameras = ["Simulated"]
-        if thorcamfs_available:
-            cameras = ["ThorCam_FS"]+ cameras
         if epix_available:
             cameras = ["PhotonFocus", "Basler"] + cameras
-
+        if thorcamfs_available:
+            cameras.append("ThorCam FS")
+            
 
         self.buffersize = make_LineEdit('1000',callback=self.revise_camera_settings,width=80) #number of images kept in rolling buffer
         self.camera_choice = make_combobox(cameras, self.change_camera, width=150)
+        if thorcamfs_available:
+            self.camera_choice.model().item(cameras.index("ThorCam FS")).setEnabled(False)
         self.bitdepth_choice = make_combobox(['temp'],
                                             callback=self.revise_camera_settings, default=0, width=150)
         self.roi_size_choice = make_combobox(['temp'],
@@ -254,8 +258,7 @@ class captureFrames(QtGui.QWidget):
         if not opened:
             print("failed to open a camera")
 
-        tab2 = ("Camera",
-                ["Modify Camera Settings",
+        tab2_item_list = ["Modify Camera Settings",
                  make_label("Camera:", bold=True),
                  self.camera_choice,
                  make_label("Bit Depth:", bold=True),
@@ -269,11 +272,18 @@ class captureFrames(QtGui.QWidget):
                             make_VBox([self.posx_inc_but, self.posx_dec_but,1]), 
                             make_label('Y ', bold=True, height=15, align='top'), self.roi_pos_choicey, 
                             make_VBox([self.posy_inc_but, self.posy_dec_but,1]), 1]),
-                 make_HBox([make_label('Rolling Buffer Size (# images):', bold=True, height=15, width=180, align='top'), self.buffersize, 1]),
                  make_HBox([make_label('Exposure Time (ms):', bold=True, height=15, align='top'), self.exposure, 1]),
                  make_HBox([make_label('Frame Time (ms):', bold=True, height=15, align='top'), self.frametime,
                             make_label('Frame Rate (Hz):', bold=True, height=15, align='top'), self.framerate, 1]),
-                 1])
+                 make_HBox([make_label('Rolling Buffer Size (# images):', bold=True, height=15, width=180, align='top'), self.buffersize, 1])]
+        
+        if thorcamfs_available:
+            self.config_thorcam_fs = make_checkbox("Set ThorCam FS Camera Parameters", callback = self.switch_configurable_camera)
+            self.close_open_thorcam_fs_but = make_button('Close\nThorCam FS', self.close_open_thorcam_fs)
+            
+            tab2_item_list.insert(1, make_HBox([self.config_thorcam_fs, self.close_open_thorcam_fs_but,1]) )
+        
+        tab2 = ("Camera", tab2_item_list+[1])
 
         #########################################
         # Tab 3, Options for saving output files
@@ -518,9 +528,15 @@ class captureFrames(QtGui.QWidget):
     def timerEvent(self, event):
         #obtain most recent image
         frame_number = self.camera.get_frame_number()
-        self.image = self.camera.get_image()
+        if thorcamfs_available and self.config_thorcam_fs.isChecked():
+        #display thorcam_fs image if config box is checked and the camera is open
+            if self.close_open_thorcam_fs_but.text() == 'Close\nThorCam FS':                
+                self.image = self.camera_fs.get_image()
+            else: print("ThorCam_fs not open")
+        else:
+            self.image = self.camera.get_image()
 
-        self.roi_shape = np.shape(self.image)
+        #self.roi_shape = np.shape(self.image)
 
         #show most recent image
         self.showImage()
@@ -630,7 +646,7 @@ class captureFrames(QtGui.QWidget):
         #data = im.convert("RGBA").tostring('raw', "RGBA") #older version of PIL
         data = im.convert("RGBA").tobytes('raw', "RGBA") #newer version of PIL
 
-        qim = QtGui.QImage(data, self.roi_shape[0], self.roi_shape[1], QtGui.QImage.Format_ARGB32)
+        qim = QtGui.QImage(data, self.image.shape[0], self.image.shape[1], QtGui.QImage.Format_ARGB32)
         pixmap = QtGui.QPixmap.fromImage(qim)
 
         myScaledPixmap = pixmap.scaled(QtCore.QSize(900,900))
@@ -759,16 +775,10 @@ class captureFrames(QtGui.QWidget):
 
     def revise_camera_settings(self):
         camera_str =  self.camera_choice.currentText()
-
-
-        '''if self.camera_choice.currentText() == "PhotonFocus":
-            self.camera = epix_framegrabber.Camera()
-        if self.camera_choice.currentText() == "Basler":
-            self.camera = epix_framegrabber.Camera()
-        if self.camera_choice.currentText() == "ThorCam_FS":
-            self.camera = thorcam_fs.Camera()
-        if self.camera_choice.currentText() == "Simulated":
-            self.camera = epix_framegrabber.Camera()'''
+        if thorcamfs_available and self.config_thorcam_fs.isChecked(): #configure ThorCam FS
+            cam_to_revise = self.camera_fs
+        else: #configure main camera
+            cam_to_revise = self.camera
 
         self.roi_shape = [int(i) for i in
                       str(self.roi_size_choice.currentText()).split(' x ')]
@@ -777,42 +787,49 @@ class captureFrames(QtGui.QWidget):
         if self.bit_depth != old_bit_depth:
             self.set_default_contrast()
             
-        if camera_str == "PhotonFocus" or camera_str == "Basler" or camera_str == "Simulated": #for cameras that can't change these dynamically
+        if camera_str == "PhotonFocus" or camera_str == "Basler": #for cameras that can't change these dynamically
             self.camera.close()
             self.camera = epix_framegrabber.Camera()
             self.camera.open(self.bit_depth, self.roi_shape, camera = self.camera_choice.currentText())
-        elif camera_str == "ThorCam_FS": #for cameras that can change dynamically
-            self.camera.set_bit_depth(self.bit_depth)
-            self.camera.set_roi_shape(self.roi_shape)
+        elif camera_str == "ThorCam FS" or camera_str == "Simulated": #for cameras that can change dynamically
+            cam_to_revise.set_bit_depth(self.bit_depth)
+            cam_to_revise.set_roi_shape(self.roi_shape)
             self.change_roi_pos()
     
         self.livebutton.toggle()
         self.live()
     
     def change_exposure(self):
-        if hasattr(self.camera, 'set_exposure'):
-            if str(self.exposure.text()) == 'NA':
-                target_exposure = 0.01
-            else:
-                target_exposure = textbox_float(self.exposure)
-            self.camera.set_exposure(target_exposure)
-            exposure_str=str( np.round(self.camera.exposure,3) )
+        if self.config_thorcam_fs.isChecked(): #configure ThorCam FS
+            cam_to_revise = self.camera_fs
+        else: #configure main camera
+            cam_to_revise = self.camera
+    
+        if str(self.exposure.text()) == 'NA':
+            target_exposure = 0.01
         else:
-            exposure_str = 'NA'
+            target_exposure = textbox_float(self.exposure)
+        cam_to_revise.set_exposure(target_exposure)
+        exposure_str=str( np.round(cam_to_revise.exposure,3) )
+
         self.exposure.setText(exposure_str)
 
     def change_frametime(self):
-        if hasattr(self.camera, 'set_frametime'):
-            if str(self.frametime.text()) == 'NA':
-                target_frametime = 0.0
-            else:
-                target_frametime = textbox_float(self.frametime)
-            self.camera.set_frametime(target_frametime)
-            frametime_str = str( np.round(self.camera.frametime,3) )
-            framerate_str = str( np.round(1.0/(self.camera.frametime/1000.0),3) )
+        if self.config_thorcam_fs.isChecked(): #configure ThorCam FS
+            cam_to_revise = self.camera_fs
+        else: #configure main camera
+            cam_to_revise = self.camera
+    
+        if str(self.frametime.text()) == 'NA':
+            target_frametime = 0.0
         else:
-            frametime_str = 'NA'
-            framerate_str = 'NA'
+            target_frametime = textbox_float(self.frametime)
+        cam_to_revise.set_frametime(target_frametime)
+        frametime_str = str( np.round(cam_to_revise.frametime,3) )
+        if cam_to_revise.frametime == 0:
+            framerate_str = '0'
+        else:
+            framerate_str = str( np.round(1000.0/cam_to_revise.frametime,3) )
             
         self.frametime.setText(frametime_str)
         self.framerate.setText(framerate_str)
@@ -821,17 +838,20 @@ class captureFrames(QtGui.QWidget):
     def change_framerate(self):
         new_framerate = textbox_float(self.framerate)
         if new_framerate == 0: new_framerate = 100000.0
-        self.frametime.setText( str(np.round(1.0/new_framerate*1000.0,3)) )
+        self.frametime.setText( str(np.round(1000.0/new_framerate,3)) )
         self.change_frametime()
     
     def change_roi_pos(self):
-        if hasattr(self.camera, 'set_roi_pos'):
-            self.camera.set_roi_pos([textbox_int(self.roi_pos_choicex), textbox_int(self.roi_pos_choicey)])
-            x_pos_str = str(self.camera.roi_pos[0])
-            y_pos_str = str(self.camera.roi_pos[1]) 
-        else:
-            x_pos_str = '0'
-            y_pos_str = '0'           
+        if self.config_thorcam_fs.isChecked(): #configure ThorCam FS
+            cam_to_revise = self.camera_fs
+        else: #configure main camera
+            cam_to_revise = self.camera
+            
+
+        cam_to_revise.set_roi_pos([textbox_int(self.roi_pos_choicex), textbox_int(self.roi_pos_choicey)])
+        x_pos_str = str(cam_to_revise.roi_pos[0])
+        y_pos_str = str(cam_to_revise.roi_pos[1]) 
+       
         self.roi_pos_choicex.setText(x_pos_str)
         self.roi_pos_choicey.setText(y_pos_str)
 
@@ -864,11 +884,15 @@ class captureFrames(QtGui.QWidget):
         self.bit_depth = int(str(self.bitdepth_choice.currentText()).split()[0])
 
         self.camera.open(self.bit_depth, self.roi_shape, camera = self.camera_choice.currentText())
-        if hasattr(self.camera, 'exposure'):
-            self.exposure.setText(str( np.round(self.camera.exposure,3) ))
+        self.exposure.setText(str( np.round(self.camera.exposure,3) ))
             
-        if hasattr(self.camera, 'frametime'):
-            self.frametime.setText(str( np.round(self.camera.frametime,3) ))
+        self.frametime.setText(str( np.round(self.camera.frametime,3) ))
+        if self.camera.frametime == 0:
+            framerate_str = '0'
+        else:
+            framerate_str = str( np.round(1000.0/self.camera.frametime,3) )                        
+        self.framerate.setText(framerate_str) 
+
 
         self.livebutton.toggle()
         self.live()
@@ -878,15 +902,12 @@ class captureFrames(QtGui.QWidget):
         #if self.camera.pixci_opened:
          #   self.camera.close()
         self.camera.close()
-
-        self.bitdepth_choice.clear()
-        self.roi_size_choice.clear()
         
         if camera_str == "Simulated":
             self.camera = dummy_image_source.DummyCamera()        
         elif (camera_str == "PhotonFocus") or (camera_str == "Basler"):
             self.camera = epix_framegrabber.Camera()
-        elif camera_str == "ThorCam_FS":
+        elif camera_str == "ThorCam FS":
             self.camera = thorcam_fs.Camera()
         
         self.get_bit_and_roi_choices(camera_str)
@@ -895,6 +916,9 @@ class captureFrames(QtGui.QWidget):
 
     def get_bit_and_roi_choices(self, camera_str):
         #assumes the same ROIs are available for each bit depth and ROIs are square
+        self.bitdepth_choice.clear()
+        self.roi_size_choice.clear()        
+        
         bit_depths = []
         ROI_sizes = []
         if camera_str == "Simulated":
@@ -915,7 +939,7 @@ class captureFrames(QtGui.QWidget):
             ROI_sizes = list(set(ROI_sizes))
             ROI_sizes.sort()
             ROI_sizes.reverse()
-        elif camera_str == "ThorCam_FS":
+        elif camera_str == "ThorCam FS":
             bit_depths.append(8)
             ROI_sizes = range(20,1020,20)
             ROI_sizes.append(1024)
@@ -992,6 +1016,71 @@ class captureFrames(QtGui.QWidget):
             self.livebutton.setChecked(True)
             self.live()
 
+    
+    def close_open_thorcam_fs(self):
+        
+        if self.close_open_thorcam_fs_but.text() == 'Close\nThorCam FS':                
+            if self.config_thorcam_fs.isChecked():
+                self.config_thorcam_fs.setChecked(False)
+                self.switch_configurable_camera()
+            self.camera_fs.close()
+            self.close_open_thorcam_fs_but.setText('Open\nThorCam FS')
+        elif self.close_open_thorcam_fs_but.text() == 'Open\nThorCam FS':
+            self.camera_fs = thorcam_fs.Camera()
+            self.camera_fs.open(bit_depth=8, roi_shape=(1024, 1024), roi_pos=(0,0), camera="ThorCam FS", exposure = 0.01, frametime = 10.0)
+            self.camera_fs.start_continuous_capture()
+            self.close_open_thorcam_fs_but.setText('Close\nThorCam FS')
+            
+    
+    def switch_configurable_camera(self):
+        if self.close_open_thorcam_fs_but.text() == 'Open\nThorCam FS':
+            self.close_open_thorcam_fs()
+            
+        if self.config_thorcam_fs.isChecked(): #configure ThorCam FS
+            self.switch_cam_gui_fields(self.camera_fs, False)                            
+        else:
+            self.switch_cam_gui_fields(self.camera, True)            
+
+    def switch_cam_gui_fields(self, new_cam, enable_flag):
+            #setup camera_choice combo box            
+            self.camera_choice.setCurrentIndex( self.camera_choice.findText(new_cam.camera) )
+            combobox_enable_allbutone(self.camera_choice, self.camera_fs.camera, enable_flag)
+            
+            #populate bit depth and roi choices
+            self.get_bit_and_roi_choices(new_cam.camera)
+                    
+            #setup bit-depth combo box 
+            camera_bitdepth_str = str(new_cam.bit_depth) + " bit"
+            self.bitdepth_choice.setCurrentIndex( self.bitdepth_choice.findText(camera_bitdepth_str) )
+            
+            #setup ROI size combo box
+            camera_ROIchoice_str = str(new_cam.roi_shape[0]) + " x " + str(new_cam.roi_shape[0])
+            self.roi_size_choice.setCurrentIndex( self.roi_size_choice.findText(camera_ROIchoice_str) )
+            
+            #setup ROI_pos, exposure, frametime, and framerate boxes
+            self.roi_pos_choicex.setText(str(new_cam.roi_pos[0]))
+            self.roi_pos_choicey.setText(str(new_cam.roi_pos[1]))
+            self.exposure.setText(str( np.round(new_cam.exposure,3) ))                        
+            self.frametime.setText(str( np.round(new_cam.frametime,3) ))
+            if self.camera.frametime == 0:
+                framerate_str = '0'
+            else:
+                framerate_str = str( np.round(1000.0/new_cam.frametime,3) )                        
+            self.framerate.setText(framerate_str) 
+                    
+    def closing_sequence(self):
+    #this will run when the main GUI window is closed 
+        self.camera.close()
+        if thorcamfs_available:
+            self.camera_fs.close()
+            
+def combobox_enable_allbutone(combobox, exception, enable):
+    #enable or disable all elements of a combobox, except for the item with text string <exception>
+    #to enable, set enable = True. To disable set enable = False
+    for ii in range(combobox.count()):
+        if combobox.itemText(ii) != exception:
+            combobox.model().item(ii).setEnabled(enable)    
+            
 def write_timeseries(filename, imageNums, metadata=None, self=None):
     #write_single "thumbmail" image for the first frame
     write_image(filename+'.tif',self.camera.get_image(imageNums[0]), metadata=metadata)
@@ -1030,6 +1119,7 @@ def main():
 
     app = QtGui.QApplication(sys.argv)
     ex = captureFrames()
+    app.aboutToQuit.connect(ex.closing_sequence)
     sys.exit(app.exec_())
 
 
