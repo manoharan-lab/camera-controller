@@ -27,6 +27,7 @@ It is a basic interface to control the camera and get an image from it.
 """
 import numpy as np
 import os.path
+import time
 
 from ctypes import *
 
@@ -71,7 +72,7 @@ class Camera(object):
 
         if i == 0:
             print("ThorCam opened successfully.")
-            pixelclock = c_uint(5) #set pixel clock to 5 MHz (slowest) to prevent frame dropping
+            pixelclock = c_uint(43) #set pixel clock to 43 MHz (fastest)
             is_PixelClock = self.uc480.is_PixelClock
             is_PixelClock.argtypes = [c_int, c_uint, POINTER(c_uint), c_uint]
             is_PixelClock(self.handle, 6 , byref(pixelclock), sizeof(pixelclock)) #6 for setting pixel clock
@@ -206,4 +207,99 @@ class Camera(object):
         is_SetFrameRate.argtypes = [c_int, c_double, POINTER(c_double)]
         is_SetFrameRate(self.handle, 1.0/(frametime/1000.0), byref(set_framerate))
         self.frametime = (1.0/set_framerate.value*1000.0)
+        
+    def open_stage(self, serialNo, poll_time = 10, v_out = 0.0, v_step = 1.0 ):
+        #poll_time for device is in ms    
+        
+        self.poll_time = poll_time 
+        v_max = 750 # max voltage output (750 = 75.0 volts)
+        prop_term = 100 #proportional feedback setting
+        int_term = 15 #integral feedback setting
+        loop_mode = 1 #closed loop = 2. open loop = 1.
+        V_source = 2 #voltage source. 0 is software only. 1 is software and external. 2 is software and potentiometer, 3 is all three.
+        input_source = 3 #feedback input source: 3 = external SMA
+        self.j_mode = 2 #joystick mode: 1 = voltage adjust, 2 = jogging, 3 = set voltage
+        self.j_rate = 1 #voltage adjust speed (1-3) = (slow-fast)
+        self.j_dir = 1 #joystick direction sense
+        self.v_set1 = 0.0 #voltage setting 1 as a percentage of the total voltage 
+        self.v_set2 = 0.0 #voltage setting 2 as a percentage of the total voltage 
+        self.dspI = 50 # display intensity (from 0 to 100)
 
+        
+               
+        self.serialNo = str(serialNo)
+        i = self.piezo.PCC_Open(self.serialNo) # returns 0 if it works
+        
+        if i == 0:
+            print("Piezo Driver Opened Successfully")
+            #configure stage
+            self.piezo.PCC_StartPolling(self.serialNo, self.poll_time) #returns 1 if it works
+            self.piezo.PCC_SetMaxOutputVoltage(self.serialNo, v_max)
+            self.piezo.PCC_SetFeedbackLoopPIconsts(self.serialNo, prop_term, int_term)
+            self.piezo.PCC_SetPositionControlMode(self.serialNo, loop_mode) #1 for open_loop, 2 for closed loop
+            self.piezo.PCC_SetVoltageSource(self.serialNo, V_source)
+            self.piezo.PCC_SetHubAnalogInput(self.serialNo, input_source)
+            self.piezo.PCC_SetMMIParams(self.serialNo, self.j_mode, self.j_rate, int(v_step/100.0*32767), self.j_dir, int(self.v_set1/100.0*32767), int(self.v_set2/100.0*32767), self.dspI) 
+
+            #enable voltage output
+            self.piezo.PCC_Enable(self.serialNo)
+            time.sleep(.1)
+            #set stage voltages
+            self.set_step_voltage(v_step)
+            self.set_output_voltage(v_out)
+            time.sleep(.1)
+            self.get_output_voltage()
+        else:
+            print("Opening piezo driver failed with error code "+str(i))          
+            self.stage_output_voltage = 0
+            self.stage_set_voltage = 0
+    
+    def close_stage(self):
+        print 'Closing Stage'
+        self.set_output_voltage(0)
+        time.sleep(2) 
+        self.piezo.PCC_Disable(self.serialNo)
+        self.piezo.PCC_StopPolling(self.serialNo)
+        self.piezo.PCC_Disconnect(self.serialNo)
+        self.piezo.PCC_Close(self.serialNo)
+        self.stage_output_voltage = 0
+    
+    def set_output_voltage(self, v_out_set, wait_for_update = True):
+        #sets stage output voltage
+        #v_out_set is a percentage (0-100) of the total output voltage
+        if v_out_set > 100:
+            v_out_set = 100
+        if v_out_set < 0:
+            v_out_set = 0
+            
+        self.piezo.PCC_SetOutputVoltage(self.serialNo, int(v_out_set/100.0*32767) )
+
+            
+    def get_output_voltage(self):
+        actual_v_out = self.piezo.PCC_GetOutputVoltage(self.serialNo)
+        self.stage_output_voltage = 100.0*float(actual_v_out)/32767        
+    
+    def set_step_voltage(self, v_step_set, wait_for_update = True):
+        #sets stage step voltage for one notch of the wheel
+        #v_step_set is a percentage (0-100) of the total output voltage
+        if v_step_set > 100:
+            v_step_set = 100
+        if v_step_set < 0:
+            v_step_set = 0    
+        
+        self.piezo.PCC_SetMMIParams(self.serialNo, self.j_mode, self.j_rate, int(v_step_set/100.0*32767), self.j_dir, int(self.v_set1/100.0*32767), int(self.v_set2/100.0*32767), self.dspI) 
+        if wait_for_update: 
+            time.sleep(.1) #wait for the device to update
+        
+            j_mode = c_short(0)
+            j_rate = c_short(0)
+            v_step = c_int32(0)
+            j_dir = c_short(0)
+            v_set1 = c_int32(0)
+            v_set2 = c_int32(0)
+            dspI = c_int16(0)
+            self.piezo.PCC_GetMMIParams(self.serialNo, byref(j_mode), byref(j_rate), byref(v_step), byref(j_dir), byref(v_set1), byref(v_set2), byref(dspI)) 
+            v_step_actual = 100.0*float(v_step.value)/32767
+
+        self.stage_step_voltage = v_step_actual
+        

@@ -45,6 +45,11 @@ from PySide import QtGui, QtCore
 from PIL import Image
 import h5py
 from multiprocessing import Process
+import matplotlib
+matplotlib.use('Qt4Agg')
+matplotlib.rcParams['backend.qt4']='PySide'
+from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
+import matplotlib.pyplot as plt
 
 from scipy.misc import toimage, fromimage, bytescale
 import numpy as np
@@ -102,6 +107,7 @@ class captureFrames(QtGui.QWidget):
             self.camera_fs = thorcam_fs.Camera()
             self.camera_fs.open(bit_depth=8, roi_shape=(1024, 1024), roi_pos=(0,0), camera="ThorCam FS", exposure = 0.01, frametime = 10.0)
             self.camera_fs.start_continuous_capture()
+            
         super(captureFrames, self).__init__()
         self.initUI()
         # we have to set this text after the internals are initialized since the filename is constructed from widget values
@@ -207,6 +213,30 @@ class captureFrames(QtGui.QWidget):
                  self.background_image_filename,
                  self.outfiletitle,
                  self.path]
+        
+        if thorcamfs_available:
+            self.stage_serialNo = make_LineEdit('29500244',width=60)
+            self.close_open_stage_but = make_button('Open\nStage', self.close_open_stage)
+            self.v_out = make_LineEdit('NA',width=40)
+            self.v_out.editingFinished.connect(self.change_output_voltage)
+            self.v_inc_but = make_button("+", self.inc_output_voltage, width = 20, height = 20)
+            self.v_dec_but = make_button("-", self.dec_output_voltage, width = 20, height = 20)                       
+            self.v_step = make_LineEdit('NA',width=40)
+            self.v_step.editingFinished.connect(self.change_step_voltage) 
+            self.lock_pos_box = make_checkbox("Lock Stage Position", callback = self.set_lock_pos)
+            self.feedback_measure_disp = make_label('')
+            self.fb_measure_to_voltage = make_LineEdit('0',width=40)        
+
+            tab1_item_list = tab1_item_list + [make_label('____________________________________________', height=15, width = 300),
+                 make_HBox([make_label('Z Stage Driver SN:', bold=True, height=15, align='top'), self.stage_serialNo,
+                    self.close_open_stage_but, 1]),
+                 make_HBox([make_label('Stage Output Voltage %', bold=True, height=15, width = 140, align='top'), self.v_out,
+                            make_label('%', bold=True, height=15, align='top'),
+                            make_VBox([self.v_inc_but, self.v_dec_but,1]), 
+                            make_label('Step:', bold=True, height=15, align='top'), self.v_step, 
+                            make_label('%', bold=True, height=15, align='top'), 1]),
+                 make_HBox([make_label('Feedback-Volts Conversion:', bold=True, height=15, width = 160, align='top'), self.fb_measure_to_voltage, 1]),
+                 self.lock_pos_box, self.feedback_measure_disp ]
                  
         tab1 = ("Image Capture", tab1_item_list+[1])
         
@@ -279,10 +309,16 @@ class captureFrames(QtGui.QWidget):
         
         if thorcamfs_available:
             self.config_thorcam_fs = make_checkbox("Set ThorCam FS Camera Parameters", callback = self.switch_configurable_camera)
-            self.close_open_thorcam_fs_but = make_button('Close\nThorCam FS', self.close_open_thorcam_fs)
-            
+            self.close_open_thorcam_fs_but = make_button('Close\nThorCam FS', self.close_open_thorcam_fs)   
+            self.fb_measure_figure = plt.figure(figsize=[2,4])
+            self.fb_measure_ax = self.fb_measure_figure.add_subplot(111)
+            self.fb_measure_ax.hold(False) #discard old plots
+            self.fb_measure_canvas = FigureCanvas(self.fb_measure_figure)   
+               
             tab2_item_list.insert(1, make_HBox([self.config_thorcam_fs, self.close_open_thorcam_fs_but,1]) )
-        
+            tab2_item_list = tab2_item_list +[make_label('\nFeedback Measure vs. time/(30 ms)', bold=True, height=30, align='top'), 
+                                                self.fb_measure_canvas]
+            
         tab2 = ("Camera", tab2_item_list+[1])
 
         #########################################
@@ -603,6 +639,12 @@ class captureFrames(QtGui.QWidget):
             self.save_buffer.setChecked(False)
             self.livebutton.setChecked(True)
             self.live()
+        
+        #update stage position for focus stabilization
+        if thorcamfs_available and self.close_open_stage_but.text() == 'Close\nStage':
+            self.update_GUI_output_voltage()
+            if self.lock_pos_box.isChecked():
+                self.correct_stage_voltage()
     
     def set_default_contrast(self):
         #resets image contrast to default
@@ -639,7 +681,7 @@ class captureFrames(QtGui.QWidget):
         minval = float(self.minpixval.text())
         maxval = float(self.maxpixval.text())
         if im.dtype==np.uint8:
-            im = im.astype(np.int8)
+            im = im.astype(np.int16)
         im = bytescale(im, minval, maxval)
 
         im = to_pil_image(im)
@@ -1073,6 +1115,146 @@ class captureFrames(QtGui.QWidget):
         self.camera.close()
         if thorcamfs_available:
             self.camera_fs.close()
+            self.camera_fs.close_stage()            
+            
+    def close_open_stage(self):
+        self.lock_pos_box.setChecked(False)
+        if self.close_open_stage_but.text() == 'Close\nStage':                
+            self.camera_fs.close_stage()
+            self.close_open_stage_but.setText('Open\nStage')
+            v_out_str = 'NA'
+            v_step_str = 'NA'
+            
+        elif self.close_open_stage_but.text() == 'Open\nStage':
+            self.camera_fs.open_stage(self.stage_serialNo.text(), poll_time = 10, v_out = 0.0, v_step = 1.0)
+            self.close_open_stage_but.setText('Close\nStage')
+            v_out_str = str( round(self.camera_fs.stage_output_voltage, 3) )
+            v_step_str = str( round(self.camera_fs.stage_step_voltage, 3) )
+            
+        self.v_out.setText(v_out_str)           
+        self.v_step.setText(v_step_str)           
+                    
+    def change_output_voltage(self):
+        v_out_set = textbox_float(self.v_out)
+        if v_out_set > 100:
+            v_out_set = 100
+        if v_out_set < 0:
+            v_out_set = 0
+        
+        self.camera_fs.set_output_voltage(v_out_set)
+
+                
+    def inc_output_voltage(self):
+        v_out_new = textbox_float(self.v_out) + textbox_float(self.v_step)
+        self.v_out.setText(str( round(v_out_new, 3) ))
+        self.change_output_voltage()
+
+    def dec_output_voltage(self):
+        v_out_new = textbox_float(self.v_out) - textbox_float(self.v_step)
+        self.v_out.setText(str( round(v_out_new, 3) ))
+        self.change_output_voltage()
+
+    def change_step_voltage(self):
+        v_step_set = textbox_float(self.v_step)
+        if v_step_set > 100:
+            v_step_set = 100
+        if v_step_set < 0:
+            v_step_set = 0
+        
+        self.camera_fs.set_step_voltage(v_step_set)
+        self.v_step.setText(str( round(self.camera_fs.stage_step_voltage, 3) ))    
+    
+    def update_GUI_output_voltage(self):
+        #update displays of camera output voltage
+        self.camera_fs.get_output_voltage()        
+        self.v_out.setText(str( round(self.camera_fs.stage_output_voltage, 3) ))
+        
+    def set_lock_pos(self):        
+        if self.lock_pos_box.isChecked():
+            #get feedback intensity for focus stabilition                
+            image = self.camera_fs.get_image()        
+            self.feedback_measure_lock = get_feedback_measure(image)
+            self.fb_measure_data = []
+            self.v_step.setEnabled(False)
+            self.v_out.setEnabled(False)
+            self.v_dec_but.setEnabled(False)
+            self.v_inc_but.setEnabled(False)            
+            self.fb_measure_to_voltage.setEnabled(False)
+            
+        else:
+            self.v_step.setText(str( round(self.camera_fs.stage_step_voltage, 3) ))        
+            self.v_out.setText(str( round(self.camera_fs.stage_output_voltage, 3) ))
+            self.feedback_measure_disp.setText('')
+            self.fb_measure_to_voltage.setEnabled(True)
+            self.v_step.setEnabled(True)
+            self.v_dec_but.setEnabled(True)
+            self.v_inc_but.setEnabled(True)
+            self.v_out.setEnabled(True)
+
+    def correct_stage_voltage(self):
+        #update voltage output based on feedback spot position
+        max_adjust = 1 #max voltage adjustment allowable (in %)
+        
+        #get center of spot
+        image = self.camera_fs.get_image()        
+        feedback_measure = get_feedback_measure(image)
+        
+        #choose update voltage
+        update_voltage = self.camera_fs.stage_output_voltage + self.get_voltage_adjustment(self.feedback_measure_lock, feedback_measure)
+        
+        if abs(self.camera_fs.stage_output_voltage - update_voltage) > max_adjust:
+            #if voltage adjustment is too large
+            self.lock_pos_box.setChecked(False)
+            self.v_out.setText( str( round(self.camera_fs.stage_output_voltage, 3) ) )
+            self.v_step.setText( str( round(self.camera_fs.stage_step_voltage, 3) ) )
+            self.feedback_measure_disp.setText('')
+            self.fb_measure_to_voltage.setEnabled(True)
+            self.v_step.setEnabled(True)
+            self.v_out.setEnabled(True)  
+            self.v_dec_but.setEnabled(True)
+            self.v_inc_but.setEnabled(True)                      
+            print('Attempted voltage adjustment too large')
+        
+        else:
+            #set update voltage
+            self.camera_fs.set_output_voltage(update_voltage, wait_for_update = False)
+            self.feedback_measure_disp.setText('Feedback measure = ' + str(feedback_measure) )
+            self.fb_measure_data.append(feedback_measure)
+            if not len(self.fb_measure_data)%100:
+                self.fb_measure_ax.plot(self.fb_measure_data)
+                self.fb_measure_canvas.draw()
+                if len(self.fb_measure_data) > 2999: self.fb_measure_data = []
+
+    def get_voltage_adjustment(self, feedback_measure_lock, feedback_measure_new):
+
+        fb_measure_to_voltage = textbox_float(self.fb_measure_to_voltage)
+        voltage_adjust = (feedback_measure_lock-feedback_measure_new)*fb_measure_to_voltage
+        return voltage_adjust  
+
+        
+
+def get_feedback_measure(image):
+    # image is a 2D array
+
+    #Use mean intensity
+    #return np.mean( image/255.0 )
+    
+    #count number of saturated pixels
+    unique, counts = np.unique(image, return_counts = True)
+    return counts[unique.argmax()]/float(image.size)
+    
+    
+    '''
+    # returns the center of mass of an image
+    #threshold image to ignore pixels off of the peak
+    thresh = 100
+    image[image>thresh] = 0
+    
+    from scipy.ndimage.measurements import center_of_mass
+    return center_of_mass(image)'''
+
+  
+    
             
 def combobox_enable_allbutone(combobox, exception, enable):
     #enable or disable all elements of a combobox, except for the item with text string <exception>

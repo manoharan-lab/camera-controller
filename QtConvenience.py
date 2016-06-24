@@ -5,6 +5,7 @@ QtAlignmentLookup['top'] = QtCore.Qt.AlignTop
 QtAlignmentLookup['bottom'] = QtCore.Qt.AlignBottom
 QtAlignmentLookup['middle'] = QtCore.Qt.AlignCenter
 
+
 def make_label(text, wordwrap=True, bold=False, height=None, width=None,
                align=None):
     label = QtGui.QLabel()
