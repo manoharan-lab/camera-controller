@@ -75,3 +75,24 @@ See the PIXCI E4 manual, Frame Buffer Memory Allocation Section for you appropra
 http://www.epixinc.com/manuals/pixci_e14el/index.htm#3.8.2. Windows 7 32/64-Bit - Frame Buffer Memory Allocation
 
 
+########################################
+This section includes directions for how to install the camera an piezo stage software for focus stabilization.
+
+Camera:
+The camera used for focus stabilization is a Thorlabs USB camera, part number DCC1545M
+1. Install the 64-bit ThorCam software from the address below, following the installation directions.
+    https://www.thorlabs.com/software_pages/viewsoftwarepage.cfm?code=ThorCam
+
+2. Make sure file below exists, as it is used to interface with the camera.
+    'C:\\Program Files\\Thorlabs\\Scientific Imaging\\ThorCam\\uc480_64.dll' 
+
+Stage: 
+The stage used for focus stabilization is a Thorlabs piezo stage, part number NFL5DP20 or NFL5DP20S.
+The stage is used in open loop mode so the feedback strain guage is not necessary.
+The stage driver used is the Thorlabs K-cube, part number KPZ101.
+1. Install the 64-bit Kinesis software from the address below, following the installation directions for the stage and driver.
+    https://www.thorlabs.com/software_pages/ViewSoftwarePage.cfm?Code=Motion_Control&viewtab=1
+2. Make sure files below exist, as they are used to interface with the stage.
+    'C:\\Program Files\\Thorlabs\\Kinesis\\Thorlabs.MotionControl.DeviceManager.dll'
+    'C:\\Program Files\\Thorlabs\\Kinesis\\Thorlabs.MotionControl.KCube.Piezo.dll'
+

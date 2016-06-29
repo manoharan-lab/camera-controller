@@ -312,11 +312,14 @@ class captureFrames(QtGui.QWidget):
             self.close_open_thorcam_fs_but = make_button('Close\nThorCam FS', self.close_open_thorcam_fs)   
             self.fb_measure_figure = plt.figure(figsize=[2,4])
             self.fb_measure_ax = self.fb_measure_figure.add_subplot(111)
+            self.fs_thresh = make_LineEdit('255',width=60)
             self.fb_measure_ax.hold(False) #discard old plots
             self.fb_measure_canvas = FigureCanvas(self.fb_measure_figure)   
                
             tab2_item_list.insert(1, make_HBox([self.config_thorcam_fs, self.close_open_thorcam_fs_but,1]) )
-            tab2_item_list = tab2_item_list +[make_label('\nFeedback Measure vs. time/(30 ms)', bold=True, height=30, align='top'), 
+            tab2_item_list = tab2_item_list +[make_HBox([make_label('\nFocus Stabilization Threshold', bold=True, height=30, align='top'),
+                                                        self.fs_thresh,1]),
+                                                make_label('\nFeedback Measure vs. time/(30 ms)', bold=True, height=30, align='top'), 
                                                 self.fb_measure_canvas]
             
         tab2 = ("Camera", tab2_item_list+[1])
@@ -567,7 +570,8 @@ class captureFrames(QtGui.QWidget):
         if thorcamfs_available and self.config_thorcam_fs.isChecked():
         #display thorcam_fs image if config box is checked and the camera is open
             if self.close_open_thorcam_fs_but.text() == 'Close\nThorCam FS':                
-                self.image = self.camera_fs.get_image()
+                self.image = np.clip(self.camera_fs.get_image(), 0, textbox_int(self.fs_thresh))
+                
             else: print("ThorCam_fs not open")
         else:
             self.image = self.camera.get_image()
@@ -1173,13 +1177,14 @@ class captureFrames(QtGui.QWidget):
         if self.lock_pos_box.isChecked():
             #get feedback intensity for focus stabilition                
             image = self.camera_fs.get_image()        
-            self.feedback_measure_lock = get_feedback_measure(image)
+            self.feedback_measure_lock = get_feedback_measure(image, textbox_int(self.fs_thresh))
             self.fb_measure_data = []
             self.v_step.setEnabled(False)
             self.v_out.setEnabled(False)
             self.v_dec_but.setEnabled(False)
             self.v_inc_but.setEnabled(False)            
             self.fb_measure_to_voltage.setEnabled(False)
+            self.fs_thresh.setEnabled(False)            
             
         else:
             self.v_step.setText(str( round(self.camera_fs.stage_step_voltage, 3) ))        
@@ -1190,6 +1195,7 @@ class captureFrames(QtGui.QWidget):
             self.v_dec_but.setEnabled(True)
             self.v_inc_but.setEnabled(True)
             self.v_out.setEnabled(True)
+            self.fs_thresh.setEnabled(True)            
 
     def correct_stage_voltage(self):
         #update voltage output based on feedback spot position
@@ -1197,10 +1203,10 @@ class captureFrames(QtGui.QWidget):
         
         #get center of spot
         image = self.camera_fs.get_image()        
-        feedback_measure = get_feedback_measure(image)
+        feedback_measure = get_feedback_measure(image, textbox_int(self.fs_thresh))
         
         #choose update voltage
-        update_voltage = self.camera_fs.stage_output_voltage + self.get_voltage_adjustment(self.feedback_measure_lock, feedback_measure)
+        update_voltage = self.camera_fs.stage_output_voltage + get_voltage_adjustment(self.feedback_measure_lock, feedback_measure, textbox_float(self.fb_measure_to_voltage))
         
         if abs(self.camera_fs.stage_output_voltage - update_voltage) > max_adjust:
             #if voltage adjustment is too large
@@ -1213,6 +1219,7 @@ class captureFrames(QtGui.QWidget):
             self.v_out.setEnabled(True)  
             self.v_dec_but.setEnabled(True)
             self.v_inc_but.setEnabled(True)                      
+            self.fs_thresh.setEnabled(True)            
             print('Attempted voltage adjustment too large')
         
         else:
@@ -1225,22 +1232,21 @@ class captureFrames(QtGui.QWidget):
                 self.fb_measure_canvas.draw()
                 if len(self.fb_measure_data) > 2999: self.fb_measure_data = []
 
-    def get_voltage_adjustment(self, feedback_measure_lock, feedback_measure_new):
+def get_voltage_adjustment(feedback_measure_lock, feedback_measure_new, fb_measure_to_voltage):
 
-        fb_measure_to_voltage = textbox_float(self.fb_measure_to_voltage)
-        voltage_adjust = (feedback_measure_lock-feedback_measure_new)*fb_measure_to_voltage
-        return voltage_adjust  
+    voltage_adjust = (feedback_measure_lock - feedback_measure_new) * fb_measure_to_voltage
+    return voltage_adjust  
 
         
 
-def get_feedback_measure(image):
+def get_feedback_measure(image, threshold):
     # image is a 2D array
 
     #Use mean intensity
     #return np.mean( image/255.0 )
     
-    #count number of saturated pixels
-    unique, counts = np.unique(image, return_counts = True)
+    #count number pixels above threshold
+    unique, counts = np.unique( np.clip(image,0,threshold) , return_counts = True)
     return counts[unique.argmax()]/float(image.size)
     
     
