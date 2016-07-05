@@ -208,7 +208,7 @@ class Camera(object):
         is_SetFrameRate(self.handle, 1.0/(frametime/1000.0), byref(set_framerate))
         self.frametime = (1.0/set_framerate.value*1000.0)
         
-    def open_stage(self, serialNo, poll_time = 10, v_out = 0.0, v_step = 1.0 ):
+    def open_stage(self, serialNo, poll_time = 10, v_out = 0.0, v_step = 5.0 ):
         #poll_time for device is in ms    
         
         self.poll_time = poll_time 
@@ -264,7 +264,7 @@ class Camera(object):
         self.piezo.PCC_Close(self.serialNo)
         self.stage_output_voltage = 0
     
-    def set_output_voltage(self, v_out_set, wait_for_update = True):
+    def set_output_voltage(self, v_out_set):
         #sets stage output voltage
         #v_out_set is a percentage (0-100) of the total output voltage
         if v_out_set > 100:

@@ -50,6 +50,8 @@ matplotlib.use('Qt4Agg')
 matplotlib.rcParams['backend.qt4']='PySide'
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 import matplotlib.pyplot as plt
+from scipy.ndimage.measurements import center_of_mass
+from scipy.ndimage.filters import gaussian_filter
 
 from scipy.misc import toimage, fromimage, bytescale
 import numpy as np
@@ -225,7 +227,12 @@ class captureFrames(QtGui.QWidget):
             self.v_step.editingFinished.connect(self.change_step_voltage) 
             self.lock_pos_box = make_checkbox("Lock Stage Position", callback = self.set_lock_pos)
             self.feedback_measure_disp = make_label('')
-            self.fb_measure_to_voltage = make_LineEdit('0',width=40)        
+            self.fb_measure_to_voltage = make_LineEdit('0',width=40)
+            self.max_spot_int_but = make_button('Maximize\nIntensity')
+            self.max_spot_int_but.setCheckable(True)
+            self.max_spot_int_but.setStyleSheet("QPushButton:checked {background-color: green} QPushButton:pressed {background-color: green}")
+            self.spot_diam = make_LineEdit('3',width=20)
+            self.v_focus_range = make_LineEdit('5.0',width=30)
 
             tab1_item_list = tab1_item_list + [make_label('____________________________________________', height=15, width = 300),
                  make_HBox([make_label('Z Stage Driver SN:', bold=True, height=15, align='top'), self.stage_serialNo,
@@ -236,7 +243,12 @@ class captureFrames(QtGui.QWidget):
                             make_label('Step:', bold=True, height=15, align='top'), self.v_step, 
                             make_label('%', bold=True, height=15, align='top'), 1]),
                  make_HBox([make_label('Feedback-Volts Conversion:', bold=True, height=15, width = 160, align='top'), self.fb_measure_to_voltage, 1]),
-                 self.lock_pos_box, self.feedback_measure_disp ]
+                 self.lock_pos_box, self.feedback_measure_disp,
+                 make_HBox([self.max_spot_int_but, 
+                             make_VBox( [make_HBox([make_label('Spot Diameter (Pixels):', bold=True, height=15, width = 140, align='top'), self.spot_diam, 1]),
+                                         make_HBox([make_label('V Range (%):', bold=True, height=15, width = 80, align='top'), self.v_focus_range, 1]), 
+                                         1]),  1]) ]
+                                         
                  
         tab1 = ("Image Capture", tab1_item_list+[1])
         
@@ -312,14 +324,11 @@ class captureFrames(QtGui.QWidget):
             self.close_open_thorcam_fs_but = make_button('Close\nThorCam FS', self.close_open_thorcam_fs)   
             self.fb_measure_figure = plt.figure(figsize=[2,4])
             self.fb_measure_ax = self.fb_measure_figure.add_subplot(111)
-            self.fs_thresh = make_LineEdit('255',width=60)
             self.fb_measure_ax.hold(False) #discard old plots
             self.fb_measure_canvas = FigureCanvas(self.fb_measure_figure)   
                
             tab2_item_list.insert(1, make_HBox([self.config_thorcam_fs, self.close_open_thorcam_fs_but,1]) )
-            tab2_item_list = tab2_item_list +[make_HBox([make_label('\nFocus Stabilization Threshold', bold=True, height=30, align='top'),
-                                                        self.fs_thresh,1]),
-                                                make_label('\nFeedback Measure vs. time/(30 ms)', bold=True, height=30, align='top'), 
+            tab2_item_list = tab2_item_list +[make_label('\nFeedback Measure vs. time/(30 ms)', bold=True, height=30, align='top'), 
                                                 self.fb_measure_canvas]
             
         tab2 = ("Camera", tab2_item_list+[1])
@@ -570,7 +579,7 @@ class captureFrames(QtGui.QWidget):
         if thorcamfs_available and self.config_thorcam_fs.isChecked():
         #display thorcam_fs image if config box is checked and the camera is open
             if self.close_open_thorcam_fs_but.text() == 'Close\nThorCam FS':                
-                self.image = np.clip(self.camera_fs.get_image(), 0, textbox_int(self.fs_thresh))
+                self.image = self.camera_fs.get_image()
                 
             else: print("ThorCam_fs not open")
         else:
@@ -649,7 +658,7 @@ class captureFrames(QtGui.QWidget):
             self.update_GUI_output_voltage()
             if self.lock_pos_box.isChecked():
                 self.correct_stage_voltage()
-    
+                
     def set_default_contrast(self):
         #resets image contrast to default
         if self.bit_depth == 8:
@@ -1072,7 +1081,7 @@ class captureFrames(QtGui.QWidget):
             self.camera_fs.close()
             self.close_open_thorcam_fs_but.setText('Open\nThorCam FS')
         elif self.close_open_thorcam_fs_but.text() == 'Open\nThorCam FS':
-            self.camera_fs = thorcam_fs.Camera()
+            #self.camera_fs = thorcam_fs.Camera()
             self.camera_fs.open(bit_depth=8, roi_shape=(1024, 1024), roi_pos=(0,0), camera="ThorCam FS", exposure = 0.01, frametime = 10.0)
             self.camera_fs.start_continuous_capture()
             self.close_open_thorcam_fs_but.setText('Close\nThorCam FS')
@@ -1130,7 +1139,7 @@ class captureFrames(QtGui.QWidget):
             v_step_str = 'NA'
             
         elif self.close_open_stage_but.text() == 'Open\nStage':
-            self.camera_fs.open_stage(self.stage_serialNo.text(), poll_time = 10, v_out = 0.0, v_step = 1.0)
+            self.camera_fs.open_stage(self.stage_serialNo.text(), poll_time = 10, v_out = 0.0, v_step = 5.0)
             self.close_open_stage_but.setText('Close\nStage')
             v_out_str = str( round(self.camera_fs.stage_output_voltage, 3) )
             v_step_str = str( round(self.camera_fs.stage_step_voltage, 3) )
@@ -1177,14 +1186,14 @@ class captureFrames(QtGui.QWidget):
         if self.lock_pos_box.isChecked():
             #get feedback intensity for focus stabilition                
             image = self.camera_fs.get_image()        
-            self.feedback_measure_lock = get_feedback_measure(image, textbox_int(self.fs_thresh))
+            self.feedback_measure_lock = get_feedback_measure(image)
             self.fb_measure_data = []
             self.v_step.setEnabled(False)
             self.v_out.setEnabled(False)
             self.v_dec_but.setEnabled(False)
             self.v_inc_but.setEnabled(False)            
             self.fb_measure_to_voltage.setEnabled(False)
-            self.fs_thresh.setEnabled(False)            
+            self.max_spot_int_but.setEnabled(False)
             
         else:
             self.v_step.setText(str( round(self.camera_fs.stage_step_voltage, 3) ))        
@@ -1195,7 +1204,7 @@ class captureFrames(QtGui.QWidget):
             self.v_dec_but.setEnabled(True)
             self.v_inc_but.setEnabled(True)
             self.v_out.setEnabled(True)
-            self.fs_thresh.setEnabled(True)            
+            self.max_spot_int_but.setEnabled(True)
 
     def correct_stage_voltage(self):
         #update voltage output based on feedback spot position
@@ -1203,7 +1212,7 @@ class captureFrames(QtGui.QWidget):
         
         #get center of spot
         image = self.camera_fs.get_image()        
-        feedback_measure = get_feedback_measure(image, textbox_int(self.fs_thresh))
+        feedback_measure = get_feedback_measure(image)
         
         #choose update voltage
         update_voltage = self.camera_fs.stage_output_voltage + get_voltage_adjustment(self.feedback_measure_lock, feedback_measure, textbox_float(self.fb_measure_to_voltage))
@@ -1218,13 +1227,13 @@ class captureFrames(QtGui.QWidget):
             self.v_step.setEnabled(True)
             self.v_out.setEnabled(True)  
             self.v_dec_but.setEnabled(True)
-            self.v_inc_but.setEnabled(True)                      
-            self.fs_thresh.setEnabled(True)            
+            self.v_inc_but.setEnabled(True)
+            self.max_spot_int_but.setEnabled(True)                      
             print('Attempted voltage adjustment too large')
         
         else:
             #set update voltage
-            self.camera_fs.set_output_voltage(update_voltage, wait_for_update = False)
+            self.camera_fs.set_output_voltage(update_voltage)
             self.feedback_measure_disp.setText('Feedback measure = ' + str(feedback_measure) )
             self.fb_measure_data.append(feedback_measure)
             if not len(self.fb_measure_data)%100:
@@ -1232,6 +1241,58 @@ class captureFrames(QtGui.QWidget):
                 self.fb_measure_canvas.draw()
                 if len(self.fb_measure_data) > 2999: self.fb_measure_data = []
 
+    def mousePressEvent(self, QMouseEvent):
+        if self.max_spot_int_but.isChecked():
+            mouse_pos = QMouseEvent.pos()
+            mouse_pos = np.array([mouse_pos.x(), mouse_pos.y()])
+            if mouse_pos[0] >= 10 and mouse_pos[0] < 910 and mouse_pos[1] >= 10 and mouse_pos[1] < 910:
+                self.maximize_spot_intensity(mouse_pos = mouse_pos)
+                
+
+    def maximize_spot_intensity(self, mouse_pos = None):
+        #initalize spot intensity
+        self.image = self.camera.get_image()       
+        #convert from display pixels to camera pixels
+        disp_to_cam = np.array(self.image.shape)/900.0
+        cam_pos = (mouse_pos-10)*disp_to_cam                    
+        y,x = np.ogrid[-cam_pos[0]:self.image.shape[0]-cam_pos[0], -cam_pos[1]:self.image.shape[1]-cam_pos[1]]                   
+        mask = x*x + y*y <= (textbox_float(self.spot_diam)*0.5)**2
+        mask = np.transpose(mask)
+        spot_intensity = np.mean(self.image[mask])
+        
+        v_range = textbox_float(self.v_focus_range) #voltage percentage range to scan over
+        
+        v_guess = textbox_float(self.v_out) #guess voltage for focus
+        
+        while v_range >= 0.1: #do loss coarse adjustments
+            
+            #scan over voltage range, measuring spot intensity
+            v_values = np.linspace(v_guess-v_range/2.0, v_guess+v_range/2.0, 10)
+            spot_intensities = np.empty(v_values.shape)
+            for ii in range(len(v_values)):
+                self.camera_fs.set_output_voltage(v_values[ii])
+                time.sleep(0.1)
+                self.image = self.camera.get_image()
+                self.showImage()                
+                spot_intensities[ii] = np.mean(self.image[mask])
+            file_name = 'spot_intensities.txt'
+            with open(file_name, 'a') as f_handle:
+                np.savetxt(f_handle, spot_intensities, header = str(v_range))
+            print [spot_intensities, v_range]
+            v_guess  = v_values[spot_intensities.argmax() ]        
+            if v_range > 0.1:
+                v_range = max(0.1, v_range/5.0)
+            else:
+                v_range = 0.0
+        
+        self.camera_fs.set_output_voltage( v_values[spot_intensities.argmax()] )        
+        self.max_spot_int_but.setChecked(False)
+        
+        #start feedback loop
+        #self.lock_pos_box.setChecked(True)           
+        #self.set_lock_pos()
+        
+                 
 def get_voltage_adjustment(feedback_measure_lock, feedback_measure_new, fb_measure_to_voltage):
 
     voltage_adjust = (feedback_measure_lock - feedback_measure_new) * fb_measure_to_voltage
@@ -1239,25 +1300,17 @@ def get_voltage_adjustment(feedback_measure_lock, feedback_measure_new, fb_measu
 
         
 
-def get_feedback_measure(image, threshold):
+def get_feedback_measure(image):
     # image is a 2D array
 
-    #Use mean intensity
-    #return np.mean( image/255.0 )
+    # get y moment of gaussian distribution
+    image = gaussian_filter(image,0)
+    total = float(image.sum())
+    Y = np.indices(image.shape)[1]
+    y = (Y*image).sum()/total
+    return y
     
-    #count number pixels above threshold
-    unique, counts = np.unique( np.clip(image,0,threshold) , return_counts = True)
-    return counts[unique.argmax()]/float(image.size)
-    
-    
-    '''
-    # returns the center of mass of an image
-    #threshold image to ignore pixels off of the peak
-    thresh = 100
-    image[image>thresh] = 0
-    
-    from scipy.ndimage.measurements import center_of_mass
-    return center_of_mass(image)'''
+    #return center_of_mass(gaussian_filter(image, 0))[1]
 
   
     

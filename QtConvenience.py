@@ -45,7 +45,7 @@ def fill_layout(layout, items):
             layout.addWidget(item)
     return layout
 
-def make_button(label, callback, parent=None, shortcut=None, height=50, width=100,
+def make_button(label, callback = None, parent=None, shortcut=None, height=50, width=100,
                 tooltip=None):
     """
     Handle the common boilerplate for creating buttons
@@ -72,7 +72,8 @@ def make_button(label, callback, parent=None, shortcut=None, height=50, width=10
         button.setShortcut(shortcut)
     if tooltip is not None:
         button.setToolTip(tooltip)
-    button.clicked.connect(callback)
+    if callback:
+        button.clicked.connect(callback)
     return button
 
 def make_checkbox(label, start_checked=False, callback=None):
