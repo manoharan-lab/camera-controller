@@ -239,7 +239,7 @@ class Camera(object):
             self.piezo.PCC_SetPositionControlMode(self.serialNo, loop_mode) #1 for open_loop, 2 for closed loop
             self.piezo.PCC_SetVoltageSource(self.serialNo, V_source)
             self.piezo.PCC_SetHubAnalogInput(self.serialNo, input_source)
-            self.piezo.PCC_SetMMIParams(self.serialNo, self.j_mode, self.j_rate, int(v_step/100.0*32767), self.j_dir, int(self.v_set1/100.0*32767), int(self.v_set2/100.0*32767), self.dspI) 
+            self.piezo.PCC_SetMMIParams(self.serialNo, self.j_mode, self.j_rate, int(round(v_step/100.0*32767)), self.j_dir, int(round(self.v_set1/100.0*32767)), int(round(self.v_set2/100.0*32767)), self.dspI) 
 
             #enable voltage output
             self.piezo.PCC_Enable(self.serialNo)
@@ -272,7 +272,7 @@ class Camera(object):
         if v_out_set < 0:
             v_out_set = 0
             
-        self.piezo.PCC_SetOutputVoltage(self.serialNo, int(v_out_set/100.0*32767) )
+        self.piezo.PCC_SetOutputVoltage(self.serialNo, int(round(v_out_set/100.0*32767)) )
 
             
     def get_output_voltage(self):
@@ -287,7 +287,7 @@ class Camera(object):
         if v_step_set < 0:
             v_step_set = 0    
         
-        self.piezo.PCC_SetMMIParams(self.serialNo, self.j_mode, self.j_rate, int(v_step_set/100.0*32767), self.j_dir, int(self.v_set1/100.0*32767), int(self.v_set2/100.0*32767), self.dspI) 
+        self.piezo.PCC_SetMMIParams(self.serialNo, self.j_mode, self.j_rate, int(round(v_step_set/100.0*32767)), self.j_dir, int(round(self.v_set1/100.0*32767)), int(round(self.v_set2/100.0*32767)), self.dspI) 
         if wait_for_update: 
             time.sleep(.1) #wait for the device to update
         

@@ -219,8 +219,9 @@ class captureFrames(QtGui.QWidget):
         if thorcamfs_available:
             self.stage_serialNo = make_LineEdit('29500244',width=60)
             self.close_open_stage_but = make_button('Open\nStage', self.close_open_stage)
-            self.v_out = make_LineEdit('NA',width=40)
-            self.v_out.editingFinished.connect(self.change_output_voltage)
+            self.v_out = make_label('NA',bold = True,width=40)
+            self.v_out.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+            #self.v_out.editingFinished.connect(self.change_output_voltage)
             self.v_inc_but = make_button("+", self.inc_output_voltage, width = 20, height = 20)
             self.v_dec_but = make_button("-", self.dec_output_voltage, width = 20, height = 20)                       
             self.v_step = make_LineEdit('NA',width=40)
@@ -237,7 +238,7 @@ class captureFrames(QtGui.QWidget):
             tab1_item_list = tab1_item_list + [make_label('____________________________________________', height=15, width = 300),
                  make_HBox([make_label('Z Stage Driver SN:', bold=True, height=15, align='top'), self.stage_serialNo,
                     self.close_open_stage_but, 1]),
-                 make_HBox([make_label('Stage Output Voltage %', bold=True, height=15, width = 140, align='top'), self.v_out,
+                 make_HBox([make_label('Stage Output Voltage: ', bold=True, height=15, width = 130, align='top'), self.v_out,
                             make_label('%', bold=True, height=15, align='top'),
                             make_VBox([self.v_inc_but, self.v_dec_but,1]), 
                             make_label('Step:', bold=True, height=15, align='top'), self.v_step, 
@@ -359,7 +360,7 @@ class captureFrames(QtGui.QWidget):
         self.browse = make_button("Browse", self.select_directory, self,
                                   height=30, width=100)
         self.root_save_path = make_LineEdit(
-            os.path.join("C:\\", "Users",     "manoharanlab", "data", "[YOUR NAME]"),
+            os.path.join("C:\\", "Users",     "manoharanlab", "data", "YourName"),
                                             self.update_filename)
         self.include_dated_subdir = CheckboxGatedValue(
             "Use a dated subdirectory", lambda : time.strftime("%Y-%m-%d"),
@@ -613,7 +614,10 @@ class captureFrames(QtGui.QWidget):
                 self.save_image()
             if textbox_int(self.include_incrementing_image_num) >= textbox_int(self.numOfFrames2):
                 self.timeseries_slow.setChecked(False)
+                if thorcamfs_available and self.close_open_stage_but.text() == 'Close\nStage':
+                    np.savetxt(self.filename()+'_VOutHistory.txt', self.v_out_history)
                 self.next_directory()
+                
 
         #check if a time series to save has been finished collecting:
         if self.timeseries.isChecked():
@@ -624,12 +628,20 @@ class captureFrames(QtGui.QWidget):
                 mkdir_p(self.save_directory())
 
                 write_timeseries(self.filename(), range(1, 1 + textbox_int(self.numOfFrames)), self.metadata, self)
+                if thorcamfs_available and self.close_open_stage_but.text() == 'Close\nStage':
+                    np.savetxt(self.filename()+'_VOutHistory.txt', self.v_out_history)
+                    if self.lock_pos_box.isChecked():
+                        #Stop Stage feedback loop since saving the data can take a long time and stage position is not updated during saving.
+                        self.lock_pos_box.setChecked(False)
+                        self.set_lock_pos()
+
 
                 increment_textbox(self.include_incrementing_image_num)
                 self.next_directory()
                 self.timeseries.setChecked(False)
                 self.livebutton.setChecked(True)
                 self.live()
+
 
         #for back-saving the contents of the rolling buffer
         if self.save_buffer.isChecked():
@@ -655,9 +667,12 @@ class captureFrames(QtGui.QWidget):
         
         #update stage position for focus stabilization
         if thorcamfs_available and self.close_open_stage_but.text() == 'Close\nStage':
-            self.update_GUI_output_voltage()
+            self.update_output_voltage()
+            if self.timeseries.isChecked() or self.timeseries_slow.isChecked():
+                    self.v_out_history.append(self.camera_fs.stage_output_voltage)
             if self.lock_pos_box.isChecked():
                 self.correct_stage_voltage()
+
                 
     def set_default_contrast(self):
         #resets image contrast to default
@@ -788,6 +803,8 @@ class captureFrames(QtGui.QWidget):
             self.camera.stop_live_capture()
 
     def collectTimeSeries(self):
+        if thorcamfs_available and self.close_open_stage_but.text() == 'Close\nStage':
+            self.v_out_history = []
         if (self.timeseries.isChecked()
             or self.timeseries_slow.isChecked()
             or self.save_buffer.isChecked()):
@@ -826,7 +843,7 @@ class captureFrames(QtGui.QWidget):
 
         #superscope default:
         self.root_save_path.setText(os.path.join("C:", "Users", "manoharanlab",
-                                                 "data", "[YOUR NAME]"))
+                                                 "data", "YourName"))
 
     def revise_camera_settings(self):
         camera_str =  self.camera_choice.currentText()
@@ -1177,8 +1194,8 @@ class captureFrames(QtGui.QWidget):
         self.camera_fs.set_step_voltage(v_step_set)
         self.v_step.setText(str( round(self.camera_fs.stage_step_voltage, 3) ))    
     
-    def update_GUI_output_voltage(self):
-        #update displays of camera output voltage
+    def update_output_voltage(self):
+        #update GUI display of stage output voltage
         self.camera_fs.get_output_voltage()        
         self.v_out.setText(str( round(self.camera_fs.stage_output_voltage, 3) ))
         
@@ -1189,7 +1206,6 @@ class captureFrames(QtGui.QWidget):
             self.feedback_measure_lock = get_feedback_measure(image)
             self.fb_measure_data = []
             self.v_step.setEnabled(False)
-            self.v_out.setEnabled(False)
             self.v_dec_but.setEnabled(False)
             self.v_inc_but.setEnabled(False)            
             self.fb_measure_to_voltage.setEnabled(False)
@@ -1203,7 +1219,6 @@ class captureFrames(QtGui.QWidget):
             self.v_step.setEnabled(True)
             self.v_dec_but.setEnabled(True)
             self.v_inc_but.setEnabled(True)
-            self.v_out.setEnabled(True)
             self.max_spot_int_but.setEnabled(True)
 
     def correct_stage_voltage(self):
@@ -1225,7 +1240,6 @@ class captureFrames(QtGui.QWidget):
             self.feedback_measure_disp.setText('')
             self.fb_measure_to_voltage.setEnabled(True)
             self.v_step.setEnabled(True)
-            self.v_out.setEnabled(True)  
             self.v_dec_but.setEnabled(True)
             self.v_inc_but.setEnabled(True)
             self.max_spot_int_but.setEnabled(True)                      
@@ -1239,7 +1253,10 @@ class captureFrames(QtGui.QWidget):
             if not len(self.fb_measure_data)%100:
                 self.fb_measure_ax.plot(self.fb_measure_data)
                 self.fb_measure_canvas.draw()
-                if len(self.fb_measure_data) > 2999: self.fb_measure_data = []
+                if len(self.fb_measure_data) > 2999:
+                    #np.savetxt('fb_measure_data.txt', self.fb_measure_data) 
+                    self.fb_measure_data = []
+                    
 
     def mousePressEvent(self, QMouseEvent):
         if self.max_spot_int_but.isChecked():
@@ -1275,9 +1292,9 @@ class captureFrames(QtGui.QWidget):
                 self.image = self.camera.get_image()
                 self.showImage()                
                 spot_intensities[ii] = np.mean(self.image[mask])
-            file_name = 'spot_intensities.txt'
+            '''file_name = 'spot_intensities.txt'
             with open(file_name, 'a') as f_handle:
-                np.savetxt(f_handle, spot_intensities, header = str(v_range))
+                np.savetxt(f_handle, spot_intensities, header = str(v_range))'''
             print [spot_intensities, v_range]
             v_guess  = v_values[spot_intensities.argmax() ]        
             if v_range > 0.1:
