@@ -105,11 +105,10 @@ class captureFrames(QtGui.QWidget):
             self.camera = epix_framegrabber.Camera()
         else:
             self.camera = dummy_image_source.DummyCamera()
+        
         if thorcamfs_available:
-            self.camera_fs = thorcam_fs.Camera()
-            self.camera_fs.open(bit_depth=8, roi_shape=(1024, 1024), roi_pos=(0,0), camera="ThorCam FS", exposure = 0.01, frametime = 10.0)
-            self.camera_fs.start_continuous_capture()
-            
+            self.camera_fs = thorcam_fs.Camera()    
+        
         super(captureFrames, self).__init__()
         self.initUI()
         # we have to set this text after the internals are initialized since the filename is constructed from widget values
@@ -322,7 +321,7 @@ class captureFrames(QtGui.QWidget):
         
         if thorcamfs_available:
             self.config_thorcam_fs = make_checkbox("Set ThorCam FS Camera Parameters", callback = self.switch_configurable_camera)
-            self.close_open_thorcam_fs_but = make_button('Close\nThorCam FS', self.close_open_thorcam_fs)   
+            self.close_open_thorcam_fs_but = make_button('Open\nThorCam FS', self.close_open_thorcam_fs)   
             self.fb_measure_figure = plt.figure(figsize=[2,4])
             self.fb_measure_ax = self.fb_measure_figure.add_subplot(111)
             self.fb_measure_ax.hold(False) #discard old plots
@@ -669,7 +668,7 @@ class captureFrames(QtGui.QWidget):
         if thorcamfs_available and self.close_open_stage_but.text() == 'Close\nStage':
             self.update_output_voltage()
             if self.timeseries.isChecked() or self.timeseries_slow.isChecked():
-                    self.v_out_history.append(self.camera_fs.stage_output_voltage)
+                    self.v_out_history.append(np.array([self.camera_fs.stage_output_voltage, self.fb_sum]))
             if self.lock_pos_box.isChecked():
                 self.correct_stage_voltage()
 
@@ -1098,7 +1097,6 @@ class captureFrames(QtGui.QWidget):
             self.camera_fs.close()
             self.close_open_thorcam_fs_but.setText('Open\nThorCam FS')
         elif self.close_open_thorcam_fs_but.text() == 'Open\nThorCam FS':
-            #self.camera_fs = thorcam_fs.Camera()
             self.camera_fs.open(bit_depth=8, roi_shape=(1024, 1024), roi_pos=(0,0), camera="ThorCam FS", exposure = 0.01, frametime = 10.0)
             self.camera_fs.start_continuous_capture()
             self.close_open_thorcam_fs_but.setText('Close\nThorCam FS')
@@ -1144,8 +1142,10 @@ class captureFrames(QtGui.QWidget):
     #this will run when the main GUI window is closed 
         self.camera.close()
         if thorcamfs_available:
-            self.camera_fs.close()
-            self.camera_fs.close_stage()            
+            if self.close_open_thorcam_fs_but.text() == 'Close\nThorCam FS':
+                self.camera_fs.close()
+            if self.close_open_stage_but.text() == 'Close\nStage':
+                self.camera_fs.close_stage()            
             
     def close_open_stage(self):
         self.lock_pos_box.setChecked(False)
@@ -1203,7 +1203,7 @@ class captureFrames(QtGui.QWidget):
         if self.lock_pos_box.isChecked():
             #get feedback intensity for focus stabilition                
             image = self.camera_fs.get_image()        
-            self.feedback_measure_lock = get_feedback_measure(image)
+            self.feedback_measure_lock = get_feedback_measure(image)[0]
             self.fb_measure_data = []
             self.v_step.setEnabled(False)
             self.v_dec_but.setEnabled(False)
@@ -1227,7 +1227,7 @@ class captureFrames(QtGui.QWidget):
         
         #get center of spot
         image = self.camera_fs.get_image()        
-        feedback_measure = get_feedback_measure(image)
+        feedback_measure, self.fb_sum = get_feedback_measure(image)
         
         #choose update voltage
         update_voltage = self.camera_fs.stage_output_voltage + get_voltage_adjustment(self.feedback_measure_lock, feedback_measure, textbox_float(self.fb_measure_to_voltage))
@@ -1325,7 +1325,7 @@ def get_feedback_measure(image):
     total = float(image.sum())
     Y = np.indices(image.shape)[1]
     y = (Y*image).sum()/total
-    return y
+    return y, total
     
     #return center_of_mass(gaussian_filter(image, 0))[1]
 
@@ -1383,3 +1383,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+    
