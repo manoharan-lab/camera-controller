@@ -600,10 +600,13 @@ class captureFrames(QtGui.QWidget):
                 is_autoscaled=", Contrast Autoscaled"
             else:
                 is_autoscaled=""
-                
-            self.imageinfo.setText(
-                'Camera Controller Version 0.0.1, Image Size: {}x{}, Max pixel value: {}, Fraction at max: {}, Frame number in buffer: {}{}'.format(width,height, maxval, portion, frame_number, is_autoscaled))
-
+            
+            imageinfo_text = 'Camera Controller Version 0.0.1, Image Size: {}x{}, Max pixel value: {}, Fraction at max: {}, Frame number in buffer: {}{}'.format(
+                    width,height, maxval, portion, frame_number, is_autoscaled)
+            if self.timeseries_slow.isChecked():
+                imageinfo_text = imageinfo_text + ', Slow Time Series Frame: ' +str(textbox_int(self.include_incrementing_image_num))
+            
+            self.imageinfo.setText(imageinfo_text)
 
         set_imageinfo()
 
@@ -717,8 +720,9 @@ class captureFrames(QtGui.QWidget):
 
         qim = QtGui.QImage(data, self.image.shape[0], self.image.shape[1], QtGui.QImage.Format_ARGB32)
         pixmap = QtGui.QPixmap.fromImage(qim)
-
-        myScaledPixmap = pixmap.scaled(QtCore.QSize(900,900))
+        
+        im_display_size = 900 #size of displayed image in pixels
+        myScaledPixmap = pixmap.scaled(QtCore.QSize(im_display_size,im_display_size))
 
         self.frame.setPixmap(myScaledPixmap)
 
@@ -1270,7 +1274,7 @@ class captureFrames(QtGui.QWidget):
         #initalize spot intensity
         self.image = self.camera.get_image()       
         #convert from display pixels to camera pixels
-        disp_to_cam = np.array(self.image.shape)/900.0
+        disp_to_cam = np.array(self.image.shape)/float(im_display_size)
         cam_pos = (mouse_pos-10)*disp_to_cam                    
         y,x = np.ogrid[-cam_pos[0]:self.image.shape[0]-cam_pos[0], -cam_pos[1]:self.image.shape[1]-cam_pos[1]]                   
         mask = x*x + y*y <= (textbox_float(self.spot_diam)*0.5)**2
