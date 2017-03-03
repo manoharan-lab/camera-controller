@@ -226,6 +226,7 @@ class captureFrames(QtGui.QWidget):
             self.v_step = make_LineEdit('NA',width=40)
             self.v_step.editingFinished.connect(self.change_step_voltage) 
             self.lock_pos_box = make_checkbox("Lock Stage Position", callback = self.set_lock_pos)
+            self.reset_zpos_but = make_button("Reset Z-Position", self.reset_zpos, width = 100, height = 30)
             self.feedback_measure_disp = make_label('')
             self.fb_measure_to_voltage = make_LineEdit('0',width=40)
             self.max_spot_int_but = make_button('Maximize\nIntensity')
@@ -243,7 +244,8 @@ class captureFrames(QtGui.QWidget):
                             make_label('Step:', bold=True, height=15, align='top'), self.v_step, 
                             make_label('%', bold=True, height=15, align='top'), 1]),
                  make_HBox([make_label('Feedback-Volts Conversion:', bold=True, height=15, width = 160, align='top'), self.fb_measure_to_voltage, 1]),
-                 self.lock_pos_box, self.feedback_measure_disp,
+                 make_HBox([self.lock_pos_box, self.reset_zpos_but, 1]),
+                 self.feedback_measure_disp,
                  make_HBox([self.max_spot_int_but, 
                              make_VBox( [make_HBox([make_label('Spot Diameter (Pixels):', bold=True, height=15, width = 140, align='top'), self.spot_diam, 1]),
                                          make_HBox([make_label('V Range (%):', bold=True, height=15, width = 80, align='top'), self.v_focus_range, 1]), 
@@ -517,7 +519,16 @@ class captureFrames(QtGui.QWidget):
         self.maxpixval = make_LineEdit('255', width=75)
         self.contrast_autoscale = make_checkbox("Autoscale Contrast")
         self.contrast_default = make_button('Default Contrast', self.set_default_contrast, self, height = 20)
-
+        
+        #moving average
+        self.movavglabel = QtGui.QLabel()
+        self.movavglabel.setText('# Mov. Avg. Frames (30 ms ft):')
+        self.movavglabel.setFont("Arial") #monospaced font avoids flickering
+        self.movavglabel.setAlignment(QtCore.Qt.AlignBottom | QtCore.Qt.AlignLeft)
+        self.nmovavg = make_LineEdit('1', width=30, callback = self.new_mov_avg)    
+        self.applymovavg = make_button('Apply Mov. Avg.', self.new_mov_avg, self, width=150, height = 20)
+        self.applymovavg.setCheckable(True)
+        self.applymovavg.setStyleSheet("QPushButton:checked {background-color: green} QPushButton:pressed {background-color: green}")   
 
         self.sphObject = QtGui.QLabel(self)
         self.sphObject.setAlignment(QtCore.Qt.AlignBottom | QtCore.Qt.AlignLeft)
@@ -555,6 +566,9 @@ class captureFrames(QtGui.QWidget):
         contrastbox.addWidget(self.maxpixval)
         contrastbox.addWidget(self.contrast_autoscale)
         contrastbox.addWidget(self.contrast_default)
+        contrastbox.addWidget(self.movavglabel)
+        contrastbox.addWidget(self.nmovavg)
+        contrastbox.addWidget(self.applymovavg)
         contrastbox.addStretch(1)
         
         textbox = QtGui.QVBoxLayout()
@@ -576,14 +590,41 @@ class captureFrames(QtGui.QWidget):
     def timerEvent(self, event):
         #obtain most recent image
         frame_number = self.camera.get_frame_number()
-        if thorcamfs_available and self.config_thorcam_fs.isChecked():
-        #display thorcam_fs image if config box is checked and the camera is open
-            if self.close_open_thorcam_fs_but.text() == 'Close\nThorCam FS':                
-                self.image = self.camera_fs.get_image()
-                
-            else: print("ThorCam_fs not open")
+        if thorcamfs_available and self.config_thorcam_fs.isChecked() and self.close_open_thorcam_fs_but.text() == 'Close\nThorCam FS':                
+            #self.image = self.camera_fs.get_image()
+            use_thorcam_fs = True
         else:
-            self.image = self.camera.get_image()
+            use_thorcam_fs = False
+            
+               
+        n_mov_avg = textbox_float(self.nmovavg) #get number of frames to use in moving average
+        if self.applymovavg.isChecked() and n_mov_avg > 1:
+
+            #self.avg_number is current position in rolling buffer
+            if self.avg_number == None: # if this is the start of a new moving average
+                self.avg_number = 0
+                self.avg_images = np.zeros((int(self.image.shape[0]),int(self.image.shape[1]), int(n_mov_avg)))
+                #self.image = np.zeros((int(self.image.shape[0]),int(self.image.shape[1]))
+            if use_thorcam_fs:
+                self.avg_images[:,:,self.avg_number] = self.camera_fs.get_image()
+            else:
+                self.avg_images[:,:,self.avg_number] = self.camera.get_image()
+            if self.avg_initiating:
+                #add each image with the appropriate weight
+                self.image = self.image*(1-1.0/(self.avg_number+1)) + self.avg_images[:,:,self.avg_number]/float(self.avg_number+1)
+                if self.avg_number == int(n_mov_avg)-1:
+                    self.avg_initiating = False
+            else:
+                #add new image and subtract oldest image
+                self.image = self.image + (self.avg_images[:,:,self.avg_number] - self.avg_images[:,:,(self.avg_number+1)%n_mov_avg])/n_mov_avg
+            
+            self.avg_number = (self.avg_number + 1)%n_mov_avg
+        
+        else:#if no moving average is used
+            if use_thorcam_fs:
+                self.image = self.camera_fs.get_image()
+            else:
+                self.image = self.camera.get_image()
 
         #self.roi_shape = np.shape(self.image)
 
@@ -592,7 +633,7 @@ class captureFrames(QtGui.QWidget):
 
         #show info about this image
         def set_imageinfo():
-            maxval = self.image.max()
+            maxval = int(self.image.max())
             height = len(self.image)
             width = np.size(self.image)/height
             portion = round(np.sum(self.image == maxval)/(1.0*np.size(self.image)),3)
@@ -675,7 +716,10 @@ class captureFrames(QtGui.QWidget):
             if self.lock_pos_box.isChecked():
                 self.correct_stage_voltage()
 
-                
+    def new_mov_avg(self):
+        self.avg_number = None
+        self.avg_initiating = True
+                    
     def set_default_contrast(self):
         #resets image contrast to default
         if self.bit_depth == 8:
@@ -1107,6 +1151,10 @@ class captureFrames(QtGui.QWidget):
             
     
     def switch_configurable_camera(self):
+        self.applymovavg.setChecked(False)
+        self.applybackground.setChecked(False)
+        self.divide_background.setChecked(False)
+    
         if self.close_open_thorcam_fs_but.text() == 'Open\nThorCam FS':
             self.close_open_thorcam_fs()
             
@@ -1208,6 +1256,7 @@ class captureFrames(QtGui.QWidget):
             #get feedback intensity for focus stabilition                
             image = self.camera_fs.get_image()        
             self.feedback_measure_lock = get_feedback_measure(image)[0]
+            self.resetting_z_pos = False
             self.fb_measure_data = []
             self.v_step.setEnabled(False)
             self.v_dec_but.setEnabled(False)
@@ -1224,10 +1273,26 @@ class captureFrames(QtGui.QWidget):
             self.v_dec_but.setEnabled(True)
             self.v_inc_but.setEnabled(True)
             self.max_spot_int_but.setEnabled(True)
+            
+    def reset_zpos(self):
+        # check the loc_pos_box without triggering its callback
+        self.reset_z_time = time.time()
+        self.resetting_z_pos = True
+        self.lock_pos_box.blockSignals(True)
+        self.lock_pos_box.setChecked(True)
+        self.lock_pos_box.blockSignals(False)
+        
+        self.v_step.setEnabled(False)
+        self.v_dec_but.setEnabled(False)
+        self.v_inc_but.setEnabled(False)            
+        self.fb_measure_to_voltage.setEnabled(False)
+        self.max_spot_int_but.setEnabled(False)
 
     def correct_stage_voltage(self):
         #update voltage output based on feedback spot position
         max_adjust = 1 #max voltage adjustment allowable (in %)
+        reset_z_time = 5 # time to ignore max adjustment after z reset is hit (in s)
+        reset_z_max_adjust = 5 #max voltage adjustment allowable when restting z (in %)
         
         #get center of spot
         image = self.camera_fs.get_image()        
@@ -1236,7 +1301,11 @@ class captureFrames(QtGui.QWidget):
         #choose update voltage
         update_voltage = self.camera_fs.stage_output_voltage + get_voltage_adjustment(self.feedback_measure_lock, feedback_measure, textbox_float(self.fb_measure_to_voltage))
         
-        if abs(self.camera_fs.stage_output_voltage - update_voltage) > max_adjust:
+        if self.resetting_z_pos: #check if still updating z-position
+            if (time.time()-self.reset_z_time) >  reset_z_time or abs(self.camera_fs.stage_output_voltage - update_voltage) > reset_z_max_adjust:
+                self.resetting_z_pos = False
+                       
+        if (not self.resetting_z_pos) and abs(self.camera_fs.stage_output_voltage - update_voltage) > max_adjust:
             #if voltage adjustment is too large
             self.lock_pos_box.setChecked(False)
             self.v_out.setText( str( round(self.camera_fs.stage_output_voltage, 3) ) )
@@ -1324,7 +1393,7 @@ def get_voltage_adjustment(feedback_measure_lock, feedback_measure_new, fb_measu
 def get_feedback_measure(image):
     # image is a 2D array
 
-    # get y moment of gaussian distribution
+    # get y moment of gaussian distribution (this is the y center of mass)
     image = gaussian_filter(image,0)
     total = float(image.sum())
     Y = np.indices(image.shape)[1]
