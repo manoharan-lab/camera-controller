@@ -658,7 +658,7 @@ class captureFrames(QtGui.QWidget):
             if textbox_int(self.include_incrementing_image_num) >= textbox_int(self.numOfFrames2):
                 self.timeseries_slow.setChecked(False)
                 if thorcamfs_available and self.close_open_stage_but.text() == 'Close\nStage':
-                    np.savetxt(self.filename()+'_VOutHistory.txt', self.v_out_history)
+                    np.savetxt(self.filename()+'_VOutHistory.txt', self.v_out_history, header = 'z_COM z_voltage(%) z_sum')
                 self.next_directory()
                 
 
@@ -672,7 +672,7 @@ class captureFrames(QtGui.QWidget):
 
                 write_timeseries(self.filename(), range(1, 1 + textbox_int(self.numOfFrames)), self.metadata, self)
                 if thorcamfs_available and self.close_open_stage_but.text() == 'Close\nStage':
-                    np.savetxt(self.filename()+'_VOutHistory.txt', self.v_out_history)
+                    np.savetxt(self.filename()+'_VOutHistory.txt', self.v_out_history, header = 'z_COM z_voltage(%) z_sum')
                     if self.lock_pos_box.isChecked():
                         #Stop Stage feedback loop since saving the data can take a long time and stage position is not updated during saving.
                         self.lock_pos_box.setChecked(False)
@@ -712,7 +712,7 @@ class captureFrames(QtGui.QWidget):
         if thorcamfs_available and self.close_open_stage_but.text() == 'Close\nStage':
             self.update_output_voltage()
             if self.timeseries.isChecked() or self.timeseries_slow.isChecked():
-                    self.v_out_history.append(np.array([self.camera_fs.stage_output_voltage, self.fb_sum]))
+                    self.v_out_history.append(np.array([self.feedback_measure, self.camera_fs.stage_output_voltage, self.fb_sum]))
             if self.lock_pos_box.isChecked():
                 self.correct_stage_voltage()
 
@@ -1296,10 +1296,10 @@ class captureFrames(QtGui.QWidget):
         
         #get center of spot
         image = self.camera_fs.get_image()        
-        feedback_measure, self.fb_sum = get_feedback_measure(image)
+        self.feedback_measure, self.fb_sum = get_feedback_measure(image)
         
         #choose update voltage
-        update_voltage = self.camera_fs.stage_output_voltage + get_voltage_adjustment(self.feedback_measure_lock, feedback_measure, textbox_float(self.fb_measure_to_voltage))
+        update_voltage = self.camera_fs.stage_output_voltage + get_voltage_adjustment(self.feedback_measure_lock, self.feedback_measure, textbox_float(self.fb_measure_to_voltage))
         
         if self.resetting_z_pos: #check if still updating z-position
             if (time.time()-self.reset_z_time) >  reset_z_time or abs(self.camera_fs.stage_output_voltage - update_voltage) > reset_z_max_adjust:
@@ -1321,8 +1321,8 @@ class captureFrames(QtGui.QWidget):
         else:
             #set update voltage
             self.camera_fs.set_output_voltage(update_voltage)
-            self.feedback_measure_disp.setText('Feedback measure = ' + str(feedback_measure) )
-            self.fb_measure_data.append(feedback_measure)
+            self.feedback_measure_disp.setText('Feedback measure = ' + str(self.feedback_measure) )
+            self.fb_measure_data.append(self.feedback_measure)
             if not len(self.fb_measure_data)%100:
                 self.fb_measure_ax.plot(self.fb_measure_data)
                 self.fb_measure_canvas.draw()
