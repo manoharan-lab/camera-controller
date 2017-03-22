@@ -61,7 +61,8 @@ import json
 
 import dummy_image_source
 import epix_framegrabber
-import thorcam_fs
+import thorcam
+import thorlabs_KPZ101
 from compress_h5 import compress_h5
 from glob import glob
 try:
@@ -70,10 +71,15 @@ try:
 except epix_framegrabber.CameraOpenError:
     epix_available = False
 try:
-    thorcam_fs.Camera()
+    thorcam.Camera()
     thorcamfs_available = True
-except thorcam_fs.CameraOpenError:
+except thorcam.CameraOpenError:
     thorcamfs_available = False
+try:
+    thorlabs_KPZ101.KPZ101()
+    thorlabs_KPZ101_available = True
+except thorlabs_KPZ101.KPZ101OpenError:
+    thorlabs_KPZ101_available = False
 
 from utility import mkdir_p
 from QtConvenience import (make_label, make_HBox, make_VBox,
@@ -107,7 +113,12 @@ class captureFrames(QtGui.QWidget):
             self.camera = dummy_image_source.DummyCamera()
         
         if thorcamfs_available:
-            self.camera_fs = thorcam_fs.Camera()    
+            self.camera_fs = thorcam.Camera()
+        
+        if thorlabs_KPZ101_available:
+            self.z_pstage = thorlabs_KPZ101.KPZ101()
+            self.x_pstage = thorlabs_KPZ101.KPZ101()
+            self.y_pstage = thorlabs_KPZ101.KPZ101()
         
         super(captureFrames, self).__init__()
         self.initUI()
@@ -215,7 +226,7 @@ class captureFrames(QtGui.QWidget):
                  self.outfiletitle,
                  self.path]
         
-        if thorcamfs_available:
+        if thorcamfs_available and thorlabs_KPZ101_available:
             self.stage_serialNo = make_LineEdit('29500244',width=60)
             self.close_open_stage_but = make_button('Open\nStage', self.close_open_stage)
             self.v_out = make_label('NA',bold = True,width=40)
@@ -268,8 +279,8 @@ class captureFrames(QtGui.QWidget):
 
         self.buffersize = make_LineEdit('1000',callback=self.revise_camera_settings,width=80) #number of images kept in rolling buffer
         self.camera_choice = make_combobox(cameras, self.change_camera, width=150)
-        if thorcamfs_available:
-            self.camera_choice.model().item(cameras.index("ThorCam FS")).setEnabled(False)
+        #if thorcamfs_available:
+            #self.camera_choice.model().item(cameras.index("ThorCam FS")).setEnabled(False)
         self.bitdepth_choice = make_combobox(['temp'],
                                             callback=self.revise_camera_settings, default=0, width=150)
         self.roi_size_choice = make_combobox(['temp'],
@@ -321,7 +332,7 @@ class captureFrames(QtGui.QWidget):
                             make_label('Frame Rate (Hz):', bold=True, height=15, align='top'), self.framerate, 1]),
                  make_HBox([make_label('Rolling Buffer Size (# images):', bold=True, height=15, width=180, align='top'), self.buffersize, 1])]
         
-        if thorcamfs_available:
+        if thorcamfs_available and thorlabs_KPZ101_available:
             self.config_thorcam_fs = make_checkbox("Set ThorCam FS Camera Parameters", callback = self.switch_configurable_camera)
             self.close_open_thorcam_fs_but = make_button('Open\nThorCam FS', self.close_open_thorcam_fs)   
             self.fb_measure_figure = plt.figure(figsize=[2,4])
@@ -657,7 +668,7 @@ class captureFrames(QtGui.QWidget):
                 self.save_image()
             if textbox_int(self.include_incrementing_image_num) >= textbox_int(self.numOfFrames2):
                 self.timeseries_slow.setChecked(False)
-                if thorcamfs_available and self.close_open_stage_but.text() == 'Close\nStage':
+                if thorcamfs_available and thorlabs_KPZ101_available and self.close_open_stage_but.text() == 'Close\nStage':
                     np.savetxt(self.filename()+'_VOutHistory.txt', self.v_out_history, header = 'z_COM z_voltage(%) z_sum')
                 self.next_directory()
                 
@@ -671,7 +682,7 @@ class captureFrames(QtGui.QWidget):
                 mkdir_p(self.save_directory())
 
                 write_timeseries(self.filename(), range(1, 1 + textbox_int(self.numOfFrames)), self.metadata, self)
-                if thorcamfs_available and self.close_open_stage_but.text() == 'Close\nStage':
+                if thorcamfs_available and thorlabs_KPZ101_available and self.close_open_stage_but.text() == 'Close\nStage':
                     np.savetxt(self.filename()+'_VOutHistory.txt', self.v_out_history, header = 'z_COM z_voltage(%) z_sum')
                     if self.lock_pos_box.isChecked():
                         #Stop Stage feedback loop since saving the data can take a long time and stage position is not updated during saving.
@@ -709,10 +720,10 @@ class captureFrames(QtGui.QWidget):
             self.live()
         
         #update stage position for focus stabilization
-        if thorcamfs_available and self.close_open_stage_but.text() == 'Close\nStage':
+        if thorcamfs_available and thorlabs_KPZ101_available and self.close_open_stage_but.text() == 'Close\nStage':
             self.update_output_voltage()
             if self.timeseries.isChecked() or self.timeseries_slow.isChecked():
-                    self.v_out_history.append(np.array([self.feedback_measure, self.camera_fs.stage_output_voltage, self.fb_sum]))
+                    self.v_out_history.append(np.array([self.feedback_measure, self.z_pstage.stage_output_voltage, self.fb_sum]))
             if self.lock_pos_box.isChecked():
                 self.correct_stage_voltage()
 
@@ -850,7 +861,7 @@ class captureFrames(QtGui.QWidget):
             self.camera.stop_live_capture()
 
     def collectTimeSeries(self):
-        if thorcamfs_available and self.close_open_stage_but.text() == 'Close\nStage':
+        if thorcamfs_available and thorlabs_KPZ101_available and self.close_open_stage_but.text() == 'Close\nStage':
             self.v_out_history = []
         if (self.timeseries.isChecked()
             or self.timeseries_slow.isChecked()
@@ -1027,7 +1038,7 @@ class captureFrames(QtGui.QWidget):
         elif (camera_str == "PhotonFocus") or (camera_str == "Basler"):
             self.camera = epix_framegrabber.Camera()
         elif camera_str == "ThorCam FS":
-            self.camera = thorcam_fs.Camera()
+            self.camera = thorcam.Camera()
         
         self.get_bit_and_roi_choices(camera_str)
 
@@ -1193,25 +1204,25 @@ class captureFrames(QtGui.QWidget):
     def closing_sequence(self):
     #this will run when the main GUI window is closed 
         self.camera.close()
-        if thorcamfs_available:
+        if thorcamfs_available and thorlabs_KPZ101_available:
             if self.close_open_thorcam_fs_but.text() == 'Close\nThorCam FS':
                 self.camera_fs.close()
             if self.close_open_stage_but.text() == 'Close\nStage':
-                self.camera_fs.close_stage()            
+                self.z_pstage.close_stage()            
             
     def close_open_stage(self):
         self.lock_pos_box.setChecked(False)
         if self.close_open_stage_but.text() == 'Close\nStage':                
-            self.camera_fs.close_stage()
+            self.z_pstage.close_stage()
             self.close_open_stage_but.setText('Open\nStage')
             v_out_str = 'NA'
             v_step_str = 'NA'
             
         elif self.close_open_stage_but.text() == 'Open\nStage':
-            self.camera_fs.open_stage(self.stage_serialNo.text(), poll_time = 10, v_out = 0.0, v_step = 5.0)
+            self.z_pstage.open_stage(self.stage_serialNo.text(), poll_time = 10, v_out = 0.0, v_step = 5.0)
             self.close_open_stage_but.setText('Close\nStage')
-            v_out_str = str( round(self.camera_fs.stage_output_voltage, 3) )
-            v_step_str = str( round(self.camera_fs.stage_step_voltage, 3) )
+            v_out_str = str( round(self.z_pstage.stage_output_voltage, 3) )
+            v_step_str = str( round(self.z_pstage.stage_step_voltage, 3) )
             
         self.v_out.setText(v_out_str)           
         self.v_step.setText(v_step_str)           
@@ -1223,7 +1234,7 @@ class captureFrames(QtGui.QWidget):
         if v_out_set < 0:
             v_out_set = 0
         
-        self.camera_fs.set_output_voltage(v_out_set)
+        self.z_pstage.set_output_voltage(v_out_set)
 
                 
     def inc_output_voltage(self):
@@ -1243,13 +1254,13 @@ class captureFrames(QtGui.QWidget):
         if v_step_set < 0:
             v_step_set = 0
         
-        self.camera_fs.set_step_voltage(v_step_set)
-        self.v_step.setText(str( round(self.camera_fs.stage_step_voltage, 3) ))    
+        self.z_pstage.set_step_voltage(v_step_set)
+        self.v_step.setText(str( round(self.z_pstage.stage_step_voltage, 3) ))    
     
     def update_output_voltage(self):
         #update GUI display of stage output voltage
-        self.camera_fs.get_output_voltage()        
-        self.v_out.setText(str( round(self.camera_fs.stage_output_voltage, 3) ))
+        self.z_pstage.get_output_voltage()        
+        self.v_out.setText(str( round(self.z_pstage.stage_output_voltage, 3) ))
         
     def set_lock_pos(self):        
         if self.lock_pos_box.isChecked():
@@ -1265,8 +1276,8 @@ class captureFrames(QtGui.QWidget):
             self.max_spot_int_but.setEnabled(False)
             
         else:
-            self.v_step.setText(str( round(self.camera_fs.stage_step_voltage, 3) ))        
-            self.v_out.setText(str( round(self.camera_fs.stage_output_voltage, 3) ))
+            self.v_step.setText(str( round(self.z_pstage.stage_step_voltage, 3) ))        
+            self.v_out.setText(str( round(self.z_pstage.stage_output_voltage, 3) ))
             self.feedback_measure_disp.setText('')
             self.fb_measure_to_voltage.setEnabled(True)
             self.v_step.setEnabled(True)
@@ -1299,17 +1310,17 @@ class captureFrames(QtGui.QWidget):
         self.feedback_measure, self.fb_sum = get_feedback_measure(image)
         
         #choose update voltage
-        update_voltage = self.camera_fs.stage_output_voltage + get_voltage_adjustment(self.feedback_measure_lock, self.feedback_measure, textbox_float(self.fb_measure_to_voltage))
+        update_voltage = self.z_pstage.stage_output_voltage + get_voltage_adjustment(self.feedback_measure_lock, self.feedback_measure, textbox_float(self.fb_measure_to_voltage))
         
         if self.resetting_z_pos: #check if still updating z-position
-            if (time.time()-self.reset_z_time) >  reset_z_time or abs(self.camera_fs.stage_output_voltage - update_voltage) > reset_z_max_adjust:
+            if (time.time()-self.reset_z_time) >  reset_z_time or abs(self.z_pstage.stage_output_voltage - update_voltage) > reset_z_max_adjust:
                 self.resetting_z_pos = False
                        
-        if (not self.resetting_z_pos) and abs(self.camera_fs.stage_output_voltage - update_voltage) > max_adjust:
+        if (not self.resetting_z_pos) and abs(self.z_pstage.stage_output_voltage - update_voltage) > max_adjust:
             #if voltage adjustment is too large
             self.lock_pos_box.setChecked(False)
-            self.v_out.setText( str( round(self.camera_fs.stage_output_voltage, 3) ) )
-            self.v_step.setText( str( round(self.camera_fs.stage_step_voltage, 3) ) )
+            self.v_out.setText( str( round(self.z_pstage.stage_output_voltage, 3) ) )
+            self.v_step.setText( str( round(self.z_pstage.stage_step_voltage, 3) ) )
             self.feedback_measure_disp.setText('')
             self.fb_measure_to_voltage.setEnabled(True)
             self.v_step.setEnabled(True)
@@ -1320,7 +1331,7 @@ class captureFrames(QtGui.QWidget):
         
         else:
             #set update voltage
-            self.camera_fs.set_output_voltage(update_voltage)
+            self.z_pstage.set_output_voltage(update_voltage)
             self.feedback_measure_disp.setText('Feedback measure = ' + str(self.feedback_measure) )
             self.fb_measure_data.append(self.feedback_measure)
             if not len(self.fb_measure_data)%100:
@@ -1360,7 +1371,7 @@ class captureFrames(QtGui.QWidget):
             v_values = np.linspace(v_guess-v_range/2.0, v_guess+v_range/2.0, 10)
             spot_intensities = np.empty(v_values.shape)
             for ii in range(len(v_values)):
-                self.camera_fs.set_output_voltage(v_values[ii])
+                self.z_pstage.set_output_voltage(v_values[ii])
                 time.sleep(0.1)
                 self.image = self.camera.get_image()
                 self.showImage()                
@@ -1375,7 +1386,7 @@ class captureFrames(QtGui.QWidget):
             else:
                 v_range = 0.0
         
-        self.camera_fs.set_output_voltage( v_values[spot_intensities.argmax()] )        
+        self.z_pstage.set_output_voltage( v_values[spot_intensities.argmax()] )        
         self.max_spot_int_but.setChecked(False)
         
         #start feedback loop
