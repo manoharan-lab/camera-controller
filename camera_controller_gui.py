@@ -65,6 +65,13 @@ import thorcam
 import thorlabs_KPZ101
 from compress_h5 import compress_h5
 from glob import glob
+import fourier_filter as ff
+
+try:
+    import trackpy as tp
+except:
+    print('Could not import trackpy')
+    
 try:
     epix_framegrabber.Camera()
     epix_available = True
@@ -505,10 +512,92 @@ class captureFrames(QtGui.QWidget):
                             self.gridcolor]),
                  1])
 
-
+        ################################
+        # Tab 6, x-y active stabilization
+        ################################
+        if thorlabs_KPZ101_available:
+            self.show_xy_stab = make_checkbox("Show X-Y Stabilization Image", callback = self.init_show_xy_stab)
+            self.xypos_navg = make_LineEdit('33',width=40)
+            self.stab_roi_size = make_LineEdit('0',width=40)
+            self.stab_roi_size.editingFinished.connect(self.init_show_xy_stab)
+            self.stab_roi_x = make_LineEdit('0',width=40)
+            self.stab_roi_y = make_LineEdit('0',width=40)
+            self.stabsize_inc_but = make_button("+", self.stab_possize_inc, width = 20, height = 20)
+            self.stabsize_dec_but = make_button("-", self.stab_possize_dec, width = 20, height = 20)
+            self.stabx_inc_but = make_button("+", self.stab_posx_inc, width = 20, height = 20)
+            self.stabx_dec_but = make_button("-", self.stab_posx_dec, width = 20, height = 20)
+            self.staby_inc_but = make_button("+", self.stab_posy_inc, width = 20, height = 20)
+            self.staby_dec_but = make_button("-", self.stab_posy_dec, width = 20, height = 20)
+            self.bright_dark_spot = make_checkbox("Dark?")
+            self.fit_diam = make_LineEdit('7',width=20)
+            self.center_tol = make_LineEdit('0.1', width = 20)
+            self.bp_small_size =  make_LineEdit('0.5',width=20)
+            self.bp_small_size.editingFinished.connect(self.init_show_xy_stab)
+            self.bp_large_size =  make_LineEdit('5',width=20)            
+            self.bp_large_size.editingFinished.connect(self.init_show_xy_stab)
+            
+            self.xstage_serialNo = make_LineEdit('29500918',width=60)
+            self.ystage_serialNo = make_LineEdit('29500937',width=60)
+            self.close_open_xystage_but = make_button('Open\nStages', self.close_open_xystage)
+            self.x_v_out = make_label('NA',bold = True,width=40)
+            self.x_v_out.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+            self.y_v_out = make_label('NA',bold = True,width=40)
+            self.y_v_out.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+            self.x_v_inc_but = make_button("+", self.x_inc_output_voltage, width = 20, height = 20)
+            self.x_v_dec_but = make_button("-", self.x_dec_output_voltage, width = 20, height = 20)
+            self.y_v_inc_but = make_button("+", self.y_inc_output_voltage, width = 20, height = 20)
+            self.y_v_dec_but = make_button("-", self.y_dec_output_voltage, width = 20, height = 20)
+            self.xy_v_step = make_LineEdit('NA',width=40)
+            self.xy_v_step.editingFinished.connect(self.change_xystep_voltage)              
+            self.xpos_to_voltage = make_LineEdit('0.0',width=40)
+            self.ypos_to_voltage = make_LineEdit('0.0',width=40)            
+            self.lock_xypos_box = make_checkbox("Lock XY Position", callback = self.set_lock_xypos)
+            self.x_fit_disp = make_label('', width = 80)
+            self.y_fit_disp = make_label('', width = 80)            
+            
+            self.xfit_figure = plt.figure(figsize=[2,3])
+            self.xfit_ax = self.xfit_figure.add_subplot(111)
+            self.xfit_ax.hold(False) #discard old plots
+            self.xfit_canvas = FigureCanvas(self.xfit_figure)
+            self.yfit_figure = plt.figure(figsize=[2,3])
+            self.yfit_ax = self.yfit_figure.add_subplot(111)
+            self.yfit_ax.hold(False) #discard old plots
+            self.yfit_canvas = FigureCanvas(self.yfit_figure)      
+            tab6 = ("XY-Stab",
+                    [make_HBox([self.show_xy_stab, make_label('XY fit frame avg ', height=15, align='top'), self.xypos_navg,1]),
+                     make_label("Region of Interest (from main camera image):", height=20, align='bottom', bold=True),
+                     make_HBox([make_label('Width/Height ', bold=True, height=15, align='top'), self.stab_roi_size,
+                        make_VBox([self.stabsize_inc_but, self.stabsize_dec_but,1]),
+                        make_label('X:', bold=True, height=15, align='top'), self.stab_roi_x,
+                        make_VBox([self.stabx_inc_but, self.stabx_dec_but,1]), 
+                        make_label('Y:', bold=True, height=15, align='top'), self.stab_roi_y, 
+                        make_VBox([self.staby_inc_but, self.staby_dec_but,1]),1]),
+                     make_HBox([make_label('Fit Params:', bold=True, height=15, align='top'), self.bright_dark_spot,
+                         make_label('Diam (px):', height=15, align='top'), self.fit_diam, 
+                         make_label('BP lims:', height=15, align='top'), self.bp_small_size, self.bp_large_size,
+                         make_label('Cen. Tol.:', height=15, align='top'), self.center_tol, 1]),
+                     make_HBox([make_label('Piezo Drivers SN    X:', bold=True, height=15, width = 120, align='top'), self.xstage_serialNo,
+                         make_label('Y:', bold=True, height=15, width = 20, align='top'), self.ystage_serialNo, self.close_open_xystage_but, 1]),
+                     make_HBox([make_label('Stage Voltages    X:', bold=True, height=15, width = 110, align='top'), self.x_v_out,
+                         make_label('%', bold=True, height=15, align='top'), make_VBox([self.x_v_inc_but, self.x_v_dec_but,1]),
+                         make_label('Y:', bold=True, height=15, align='top'), self.y_v_out, make_label('%', bold=True, height=15, align='top'),
+                         make_VBox([self.y_v_inc_but, self.y_v_dec_but,1]),
+                         make_label('Step:', bold=True, height=15, align='top'), self.xy_v_step, 1]),  
+                     make_HBox([make_label('Position-To-Volts Conversion', bold=True, height=15, width = 180, align='top'), make_label('X: ',height=15),
+                                self.xpos_to_voltage, make_label('Y: ',height=15), self.ypos_to_voltage, 1]), 
+                     make_HBox([self.lock_xypos_box, self.x_fit_disp, self.y_fit_disp,1]),
+                     make_label('\nX Fit vs. Time', bold=True, height=30, align='top'),
+                     self.xfit_canvas,
+                     make_label('\nY Fit vs. Time', bold=True, height=30, align='top'),
+                     self.yfit_canvas,
+                         1])
         ################################################
 
-        tab_widget = make_tabs([tab1, tab2, tab3, tab4, tab5])
+        tab_widget = [tab1, tab2, tab3, tab4, tab5]
+        if thorlabs_KPZ101_available:
+            tab_widget = [tab1, tab2, tab6, tab3, tab4, tab5]
+        
+        tab_widget = make_tabs(tab_widget)    
 
         #Text at bottom of screen
         self.imageinfo = QtGui.QLabel()
@@ -601,8 +690,7 @@ class captureFrames(QtGui.QWidget):
     def timerEvent(self, event):
         #obtain most recent image
         frame_number = self.camera.get_frame_number()
-        if thorcamfs_available and self.config_thorcam_fs.isChecked() and self.close_open_thorcam_fs_but.text() == 'Close\nThorCam FS':                
-            #self.image = self.camera_fs.get_image()
+        if thorcamfs_available and self.config_thorcam_fs.isChecked() and self.close_open_thorcam_fs_but.text() == 'Close\nThorCam FS' and not self.show_xy_stab.isChecked():                
             use_thorcam_fs = True
         else:
             use_thorcam_fs = False
@@ -610,7 +698,6 @@ class captureFrames(QtGui.QWidget):
                
         n_mov_avg = textbox_float(self.nmovavg) #get number of frames to use in moving average
         if self.applymovavg.isChecked() and n_mov_avg > 1:
-
             #self.avg_number is current position in rolling buffer
             if self.avg_number == None: # if this is the start of a new moving average
                 self.avg_number = 0
@@ -637,8 +724,26 @@ class captureFrames(QtGui.QWidget):
             else:
                 self.image = self.camera.get_image()
 
-        #self.roi_shape = np.shape(self.image)
-
+        #get image to use for xy_stabilization
+        if thorlabs_KPZ101_available and (self.show_xy_stab.isChecked() or self.lock_xypos_box.isChecked()):
+            x_pos = textbox_int(self.stab_roi_x)
+            y_pos = textbox_int(self.stab_roi_y)
+            image_size = textbox_int(self.stab_roi_size)
+            xy_navg = textbox_int(self.xypos_navg)
+            if image_size <= 0 or image_size >= self.image.shape[0]:
+                image_size = self.image.shape[0]           
+            
+            if self.xy_stab_image_number == 0: #start of new moving average
+                self.xy_stab_image_temp = np.zeros(( image_size, image_size ))
+            self.xy_stab_image_temp = self.xy_stab_image_temp + self.camera.get_image()[y_pos:y_pos+image_size, x_pos:x_pos+image_size]/float(xy_navg)
+            if self.xy_stab_image_number == xy_navg-1: #update output image
+                if self.bp_mask != None:
+                    self.xy_stab_image_temp = ff.fourier_filter2D(self.xy_stab_image_temp, self.bp_mask)
+                self.xy_stab_image = self.xy_stab_image_temp
+            
+            self.xy_stab_image_number = (self.xy_stab_image_number + 1)%xy_navg          
+           
+               
         #show most recent image
         self.showImage()
 
@@ -722,10 +827,14 @@ class captureFrames(QtGui.QWidget):
         #update stage position for focus stabilization
         if thorcamfs_available and thorlabs_KPZ101_available and self.close_open_stage_but.text() == 'Close\nStage':
             self.update_output_voltage()
+            if self.close_open_xystage_but.text() == 'Close\nStages':
+                self.update_xy_output_voltage()
             if self.timeseries.isChecked() or self.timeseries_slow.isChecked():
                     self.v_out_history.append(np.array([self.feedback_measure, self.z_pstage.stage_output_voltage, self.fb_sum]))
             if self.lock_pos_box.isChecked():
                 self.correct_stage_voltage()
+            if self.lock_xypos_box.isChecked():
+                self.correct_xystage_voltage()
 
     def new_mov_avg(self):
         self.avg_number = None
@@ -754,7 +863,11 @@ class captureFrames(QtGui.QWidget):
         #https://github.com/shuge/Enjoy-Qt-Python-Binding/blob/master/image/display_img/pil_to_qpixmap.py
         #myQtImage = ImageQt(im)
         #qimage = QtGui.QImage(myQtImage)
-        im = self.image
+        if thorlabs_KPZ101_available and self.show_xy_stab.isChecked(): # for xy stabilization image
+            im = self.xy_stab_image
+        else:
+            im = self.image
+        im_shape = im.shape
        
         if (self.divide_background.isChecked() and
             self.background_image is not None):
@@ -773,7 +886,7 @@ class captureFrames(QtGui.QWidget):
         #data = im.convert("RGBA").tostring('raw', "RGBA") #older version of PIL
         data = im.convert("RGBA").tobytes('raw', "RGBA") #newer version of PIL
 
-        qim = QtGui.QImage(data, self.image.shape[0], self.image.shape[1], QtGui.QImage.Format_ARGB32)
+        qim = QtGui.QImage(data, im_shape[0], im_shape[1], QtGui.QImage.Format_ARGB32)
         pixmap = QtGui.QPixmap.fromImage(qim)
         
         im_display_size = 900 #size of displayed image in pixels
@@ -1007,7 +1120,7 @@ class captureFrames(QtGui.QWidget):
         new_pos = textbox_int(self.roi_pos_choicey)-10
         self.roi_pos_choicey.setText(str(new_pos))        
         self.change_roi_pos()
-        
+                      
     def reopen_camera(self):
         self.roi_shape = [int(i) for i in
                           str(self.roi_size_choice.currentText()).split(' x ')]
@@ -1208,7 +1321,10 @@ class captureFrames(QtGui.QWidget):
             if self.close_open_thorcam_fs_but.text() == 'Close\nThorCam FS':
                 self.camera_fs.close()
             if self.close_open_stage_but.text() == 'Close\nStage':
-                self.z_pstage.close_stage()            
+                self.z_pstage.close_stage()     
+            if self.close_open_xystage_but.text() == 'Close\nStages':
+                self.x_pstage.close_stage()         
+                self.y_pstage.close_stage()         
             
     def close_open_stage(self):
         self.lock_pos_box.setChecked(False)
@@ -1389,11 +1505,202 @@ class captureFrames(QtGui.QWidget):
         self.z_pstage.set_output_voltage( v_values[spot_intensities.argmax()] )        
         self.max_spot_int_but.setChecked(False)
         
-        #start feedback loop
-        #self.lock_pos_box.setChecked(True)           
-        #self.set_lock_pos()
         
-                 
+    def stab_possize_inc(self):
+        new_pos = textbox_int(self.stab_roi_size)+1
+        self.stab_roi_size.setText(str(new_pos))
+        self.init_show_xy_stab()      
+
+    def stab_possize_dec(self):
+        new_pos = textbox_int(self.stab_roi_size)-1
+        self.stab_roi_size.setText(str(new_pos))
+        self.init_show_xy_stab()    
+        
+    def stab_posx_inc(self):
+        new_pos = textbox_int(self.stab_roi_x)+1
+        self.stab_roi_x.setText(str(new_pos))
+
+    def stab_posx_dec(self):
+        new_pos = textbox_int(self.stab_roi_x)-1
+        self.stab_roi_x.setText(str(new_pos))
+
+    def stab_posy_inc(self):
+        new_pos = textbox_int(self.stab_roi_y)+1
+        self.stab_roi_y.setText(str(new_pos))
+
+    def stab_posy_dec(self):
+        new_pos = textbox_int(self.stab_roi_y)-1
+        self.stab_roi_y.setText(str(new_pos))
+    
+    def init_show_xy_stab(self):
+        if not self.lock_xypos_box.isChecked(): #initialize if xy stabilization isn't on.
+            self.xy_stab_image_number = 0
+            x_pos = textbox_int(self.stab_roi_x)
+            y_pos = textbox_int(self.stab_roi_y)
+            image_size = textbox_int(self.stab_roi_size)
+            xy_navg = textbox_int(self.xypos_navg)
+            if image_size <= 0 or image_size >= self.image.shape[0]:
+                image_size = self.image.shape[0]
+                self.stab_roi_size.setText(str(image_size))     
+            self.xy_stab_image = self.camera.get_image()[y_pos:y_pos+image_size, x_pos:x_pos+image_size]/float(xy_navg)
+ 
+            #init bandpass mask
+            try:
+                small_lim = textbox_float(self.bp_small_size)
+                large_lim = textbox_float(self.bp_large_size)
+                if small_lim == 0: small_lim = None
+                if large_lim == 0: large_lim = None
+                    
+                self.bp_mask = ff.bandpass_filter(3*np.array(self.xy_stab_image.shape), px_bd = [small_lim, large_lim], blur = [None,None])
+            except:
+                self.bp_mask = None
+                print('No bandpass filter used')
+
+
+        
+    def set_lock_xypos(self):
+        if self.lock_xypos_box.isChecked():
+           self.xy_stab_image_number = 0
+           self.getting_xy_lock = True
+           self.xfit_data = []
+           self.yfit_data = []
+        else:
+            self.x_fit_disp.setText('')
+            self.y_fit_disp.setText('')
+    
+    def close_open_xystage(self):
+        self.lock_xypos_box.setChecked(False)
+        if self.close_open_xystage_but.text() == 'Close\nStages':                
+            self.x_pstage.close_stage()
+            self.y_pstage.close_stage()            
+            self.close_open_xystage_but.setText('Open\nStages')
+            x_v_out_str = 'NA'
+            x_v_step_str = 'NA'
+            y_v_out_str = 'NA'
+            y_v_step_str = 'NA'
+            
+        elif self.close_open_xystage_but.text() == 'Open\nStages':
+            self.x_pstage.open_stage(self.xstage_serialNo.text(), poll_time = 10, v_out = 0.0, v_step = 5.0)
+            self.y_pstage.open_stage(self.ystage_serialNo.text(), poll_time = 10, v_out = 0.0, v_step = 5.0)
+            self.close_open_xystage_but.setText('Close\nStages')
+            x_v_out_str = str( round(self.x_pstage.stage_output_voltage, 3) )
+            x_v_step_str = str( round(self.x_pstage.stage_step_voltage, 3) )
+            y_v_out_str = str( round(self.y_pstage.stage_output_voltage, 3) )
+            y_v_step_str = str( round(self.y_pstage.stage_step_voltage, 3) )
+            
+        self.x_v_out.setText(x_v_out_str)           
+        self.y_v_out.setText(y_v_out_str)           
+        self.xy_v_step.setText(x_v_step_str)
+    
+    def update_xy_output_voltage(self):
+        #update GUI display of stage output voltage
+        self.x_pstage.get_output_voltage()
+        self.y_pstage.get_output_voltage()               
+        self.x_v_out.setText(str( round(self.x_pstage.stage_output_voltage, 3) ))
+        self.y_v_out.setText(str( round(self.y_pstage.stage_output_voltage, 3) ))
+     
+    def correct_xystage_voltage(self):
+        xy_navg = textbox_int(self.xypos_navg)
+      
+        if self.xy_stab_image_number == 0:
+            image_size = textbox_int(self.stab_roi_size)
+            cen_tol = textbox_float(self.center_tol)
+            #fit for xy position of spot        
+            self.x_fit, self.y_fit = spot_fit(self.xy_stab_image, textbox_float(self.fit_diam), dark_spot = self.bright_dark_spot.isChecked(), x_g = image_size/2., y_g=image_size/2., x_tol = cen_tol, y_tol = cen_tol)
+            if self.getting_xy_lock: #set this as the lock position if necessary
+                self.getting_xy_lock = False
+                self.xpos_lock = self.x_fit
+                self.ypos_lock = self.y_fit
+                    
+            #get update voltage
+            x_update_voltage = self.x_pstage.stage_output_voltage + get_voltage_adjustment(self.xpos_lock, self.x_fit, textbox_float(self.xpos_to_voltage))
+            y_update_voltage = self.y_pstage.stage_output_voltage + get_voltage_adjustment(self.ypos_lock, self.y_fit, textbox_float(self.ypos_to_voltage))
+            
+            #set update voltage
+            self.x_pstage.set_output_voltage(x_update_voltage)
+            self.y_pstage.set_output_voltage(y_update_voltage)
+            
+            #update display
+            self.x_fit_disp.setText('X fit = ' + str(self.x_fit) )
+            self.y_fit_disp.setText('Y fit = ' + str(self.y_fit) )
+            self.xfit_data.append(self.x_fit)
+            self.yfit_data.append(self.y_fit)
+            if not len(self.xfit_data)%5:
+                self.xfit_ax.plot(self.xfit_data)
+                self.xfit_canvas.draw()
+                self.yfit_ax.plot(self.yfit_data)
+                self.yfit_canvas.draw()
+                if len(self.xfit_data) > 2999:
+                    self.xfit_data = []
+                    self.yfit_data = []  
+    
+    def change_xystep_voltage(self):
+        xy_v_step_set = textbox_float(self.xy_v_step)
+        if xy_v_step_set > 100:
+            xy_v_step_set = 100
+        if xy_v_step_set < 0:
+            xy_v_step_set = 0
+        
+        self.x_pstage.set_step_voltage(xy_v_step_set)
+        self.y_pstage.set_step_voltage(xy_v_step_set)
+        self.xy_v_step.setText(str( round(self.x_pstage.stage_step_voltage, 3) ))
+    
+    def change_x_output_voltage(self):
+        x_v_out_set = textbox_float(self.x_v_out)
+        if x_v_out_set > 100:
+            x_v_out_set = 100
+        if x_v_out_set < 0:
+            x_v_out_set = 0
+        self.x_pstage.set_output_voltage(x_v_out_set)
+
+    def change_y_output_voltage(self):
+        y_v_out_set = textbox_float(self.y_v_out)
+        if y_v_out_set > 100:
+            y_v_out_set = 100
+        if y_v_out_set < 0:
+            y_v_out_set = 0
+        self.y_pstage.set_output_voltage(y_v_out_set)
+                                    
+    def x_dec_output_voltage(self):
+        v_out_new = textbox_float(self.x_v_out) - textbox_float(self.xy_v_step)
+        self.x_v_out.setText(str( round(v_out_new, 3) ))
+        self.change_x_output_voltage()
+    def x_inc_output_voltage(self):
+        v_out_new = textbox_float(self.x_v_out) + textbox_float(self.xy_v_step)
+        self.x_v_out.setText(str( round(v_out_new, 3) ))
+        self.change_x_output_voltage()
+    def y_dec_output_voltage(self):
+        v_out_new = textbox_float(self.y_v_out) - textbox_float(self.xy_v_step)
+        self.y_v_out.setText(str( round(v_out_new, 3) ))
+        self.change_y_output_voltage()
+    def y_inc_output_voltage(self):
+        v_out_new = textbox_float(self.y_v_out) + textbox_float(self.xy_v_step)
+        self.y_v_out.setText(str( round(v_out_new, 3) ))
+        self.change_y_output_voltage()
+    
+def spot_fit(im, diameter, dark_spot = False, x_g = None, y_g=None, x_tol = 1.0, y_tol = 1.0):
+    '''Uses trackpy to find spots with specified diameter.
+    Set dark-spot true if the spot to track is darker than the background
+    x_g,y_g = guess pixels for spot position (default is image center)
+    x_tol, y_tol. Ignore spots where the fit postion is not within the fraction x_tol (y_tol) of x_g (y_g).
+    '''
+
+    if x_g == None: x_g = im.shape[0]/2.
+    if y_g == None: y_g = im.shape[1]/2.
+            
+    f = tp.locate(im, diameter = diameter, invert = dark_spot)
+    print(f)
+    f = f[ f['x'] > x_g*(1-x_tol) ]
+    f = f[ f['x'] < x_g*(1+x_tol) ]
+    f = f[ f['y'] > y_g*(1-y_tol) ]
+    f = f[ f['y'] < y_g*(1+y_tol) ]
+    if len(f) != 1:
+        print( str(len(f)) +' spots found. Change fit parameters or image so exactly 1 spot is found.')
+        return 0, 0
+    x_fit = f['x'][0]
+    y_fit = f['y'][0]
+    return x_fit, y_fit
+               
 def get_voltage_adjustment(feedback_measure_lock, feedback_measure_new, fb_measure_to_voltage):
 
     voltage_adjust = (feedback_measure_lock - feedback_measure_new) * fb_measure_to_voltage

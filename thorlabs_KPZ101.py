@@ -49,8 +49,7 @@ class KPZ101(object):
             raise CameraOpenError("Thorlabs KPZ101 drivers not available.")
 
     def open_stage(self, serialNo, poll_time = 10, v_out = 0.0, v_step = 5.0 ):
-        #poll_time for device is in ms    
-        
+        #poll_time for device is in ms      
         self.poll_time = poll_time 
         v_max = 750 # max voltage output (750 = 75.0 volts)
         prop_term = 100 #proportional feedback setting
@@ -140,6 +139,6 @@ class KPZ101(object):
             dspI = c_int16(0)
             self.piezo.PCC_GetMMIParams(self.serialNo, byref(j_mode), byref(j_rate), byref(v_step), byref(j_dir), byref(v_set1), byref(v_set2), byref(dspI)) 
             v_step_actual = 100.0*float(v_step.value)/32767
-
+            
         self.stage_step_voltage = v_step_actual
         
