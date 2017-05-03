@@ -56,7 +56,7 @@ class KPZ101(object):
         int_term = 15 #integral feedback setting
         loop_mode = 1 #closed loop = 2. open loop = 1.
         V_source = 2 #voltage source. 0 is software only. 1 is software and external. 2 is software and potentiometer, 3 is all three.
-        input_source = 3 #feedback input source: 3 = external SMA
+        input_source = 3 #feedback input source: 1 = all hub bays, 2 = adjacent hub bays, 3 = external SMA
         self.j_mode = 2 #joystick mode: 1 = voltage adjust, 2 = jogging, 3 = set voltage
         self.j_rate = 1 #voltage adjust speed (1-3) = (slow-fast)
         self.j_dir = 1 #joystick direction sense
@@ -76,12 +76,12 @@ class KPZ101(object):
             self.piezo.PCC_SetMaxOutputVoltage(self.serialNo, v_max)
             self.piezo.PCC_SetFeedbackLoopPIconsts(self.serialNo, prop_term, int_term)
             self.piezo.PCC_SetPositionControlMode(self.serialNo, loop_mode) #1 for open_loop, 2 for closed loop
-            self.piezo.PCC_SetVoltageSource(self.serialNo, V_source)
             self.piezo.PCC_SetHubAnalogInput(self.serialNo, input_source)
             self.piezo.PCC_SetMMIParams(self.serialNo, self.j_mode, self.j_rate, int(round(v_step/100.0*32767)), self.j_dir, int(round(self.v_set1/100.0*32767)), int(round(self.v_set2/100.0*32767)), self.dspI) 
-
             #enable voltage output
             self.piezo.PCC_Enable(self.serialNo)
+            time.sleep(.1)
+            self.piezo.PCC_SetVoltageSource(self.serialNo, V_source)
             time.sleep(.1)
             #set stage voltages
             self.set_step_voltage(v_step)

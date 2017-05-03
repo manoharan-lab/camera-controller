@@ -516,10 +516,12 @@ class captureFrames(QtGui.QWidget):
         # Tab 6, x-y active stabilization
         ################################
         if thorlabs_KPZ101_available:
-            self.show_xy_stab = make_checkbox("Show X-Y Stabilization Image", callback = self.init_show_xy_stab)
+            self.get_xy_stab = make_checkbox("Get X-Y Stabilization Image", callback = self.init_get_xy_stab)
+            self.show_xy_stab = make_checkbox("Show Image", callback = self.init_show_xy_stab)
             self.xypos_navg = make_LineEdit('33',width=40)
+            self.xypos_navg.editingFinished.connect(self.init_get_xy_stab)
             self.stab_roi_size = make_LineEdit('0',width=40)
-            self.stab_roi_size.editingFinished.connect(self.init_show_xy_stab)
+            self.stab_roi_size.editingFinished.connect(self.init_get_xy_stab)
             self.stab_roi_x = make_LineEdit('0',width=40)
             self.stab_roi_y = make_LineEdit('0',width=40)
             self.stabsize_inc_but = make_button("+", self.stab_possize_inc, width = 20, height = 20)
@@ -532,9 +534,9 @@ class captureFrames(QtGui.QWidget):
             self.fit_diam = make_LineEdit('7',width=20)
             self.center_tol = make_LineEdit('0.1', width = 20)
             self.bp_small_size =  make_LineEdit('0.5',width=20)
-            self.bp_small_size.editingFinished.connect(self.init_show_xy_stab)
+            self.bp_small_size.editingFinished.connect(self.init_get_xy_stab)
             self.bp_large_size =  make_LineEdit('5',width=20)            
-            self.bp_large_size.editingFinished.connect(self.init_show_xy_stab)
+            self.bp_large_size.editingFinished.connect(self.init_get_xy_stab)
             
             self.xstage_serialNo = make_LineEdit('29500918',width=60)
             self.ystage_serialNo = make_LineEdit('29500937',width=60)
@@ -564,9 +566,9 @@ class captureFrames(QtGui.QWidget):
             self.yfit_ax.hold(False) #discard old plots
             self.yfit_canvas = FigureCanvas(self.yfit_figure)      
             tab6 = ("XY-Stab",
-                    [make_HBox([self.show_xy_stab, make_label('XY fit frame avg ', height=15, align='top'), self.xypos_navg,1]),
+                    [make_HBox([self.get_xy_stab, self.show_xy_stab, make_label('XY fit frame med:', height=15, align='top'), self.xypos_navg,1]),
                      make_label("Region of Interest (from main camera image):", height=20, align='bottom', bold=True),
-                     make_HBox([make_label('Width/Height ', bold=True, height=15, align='top'), self.stab_roi_size,
+                     make_HBox([make_label('Width/Height:', bold=True, height=15, align='top'), self.stab_roi_size,
                         make_VBox([self.stabsize_inc_but, self.stabsize_dec_but,1]),
                         make_label('X:', bold=True, height=15, align='top'), self.stab_roi_x,
                         make_VBox([self.stabx_inc_but, self.stabx_dec_but,1]), 
@@ -583,7 +585,7 @@ class captureFrames(QtGui.QWidget):
                          make_label('Y:', bold=True, height=15, align='top'), self.y_v_out, make_label('%', bold=True, height=15, align='top'),
                          make_VBox([self.y_v_inc_but, self.y_v_dec_but,1]),
                          make_label('Step:', bold=True, height=15, align='top'), self.xy_v_step, 1]),  
-                     make_HBox([make_label('Position-To-Volts Conversion', bold=True, height=15, width = 180, align='top'), make_label('X: ',height=15),
+                     make_HBox([make_label('Position-To-Volts Conversion:', bold=True, height=15, width = 180, align='top'), make_label('X: ',height=15),
                                 self.xpos_to_voltage, make_label('Y: ',height=15), self.ypos_to_voltage, 1]), 
                      make_HBox([self.lock_xypos_box, self.x_fit_disp, self.y_fit_disp,1]),
                      make_label('\nX Fit vs. Time', bold=True, height=30, align='top'),
@@ -725,7 +727,7 @@ class captureFrames(QtGui.QWidget):
                 self.image = self.camera.get_image()
 
         #get image to use for xy_stabilization
-        if thorlabs_KPZ101_available and (self.show_xy_stab.isChecked() or self.lock_xypos_box.isChecked()):
+        if thorlabs_KPZ101_available and self.get_xy_stab.isChecked():
             x_pos = textbox_int(self.stab_roi_x)
             y_pos = textbox_int(self.stab_roi_y)
             image_size = textbox_int(self.stab_roi_size)
@@ -733,16 +735,13 @@ class captureFrames(QtGui.QWidget):
             if image_size <= 0 or image_size >= self.image.shape[0]:
                 image_size = self.image.shape[0]           
             
-            if self.xy_stab_image_number == 0: #start of new moving average
-                self.xy_stab_image_temp = np.zeros(( image_size, image_size ))
-            self.xy_stab_image_temp = self.xy_stab_image_temp + self.camera.get_image()[y_pos:y_pos+image_size, x_pos:x_pos+image_size]/float(xy_navg)
+            self.xy_stab_image_med[:,:,self.xy_stab_image_number] = self.camera.get_image()[y_pos:y_pos+image_size, x_pos:x_pos+image_size]
             if self.xy_stab_image_number == xy_navg-1: #update output image
+                self.xy_stab_image = np.median(self.xy_stab_image_med, 2)
                 if self.bp_mask != None:
-                    self.xy_stab_image_temp = ff.fourier_filter2D(self.xy_stab_image_temp, self.bp_mask)
-                self.xy_stab_image = self.xy_stab_image_temp
-            
+                    self.xy_stab_image = ff.fourier_filter2D(self.xy_stab_image, self.bp_mask)
             self.xy_stab_image_number = (self.xy_stab_image_number + 1)%xy_navg          
-           
+                           
                
         #show most recent image
         self.showImage()
@@ -825,16 +824,17 @@ class captureFrames(QtGui.QWidget):
             self.live()
         
         #update stage position for focus stabilization
-        if thorcamfs_available and thorlabs_KPZ101_available and self.close_open_stage_but.text() == 'Close\nStage':
-            self.update_output_voltage()
+        if thorcamfs_available and thorlabs_KPZ101_available:
             if self.close_open_xystage_but.text() == 'Close\nStages':
                 self.update_xy_output_voltage()
-            if self.timeseries.isChecked() or self.timeseries_slow.isChecked():
-                    self.v_out_history.append(np.array([self.feedback_measure, self.z_pstage.stage_output_voltage, self.fb_sum]))
-            if self.lock_pos_box.isChecked():
-                self.correct_stage_voltage()
-            if self.lock_xypos_box.isChecked():
-                self.correct_xystage_voltage()
+            if self.close_open_stage_but.text() == 'Close\nStage':
+                self.update_output_voltage()            
+                if self.timeseries.isChecked() or self.timeseries_slow.isChecked():
+                        self.v_out_history.append(np.array([self.feedback_measure, self.z_pstage.stage_output_voltage, self.fb_sum]))
+                if self.lock_pos_box.isChecked():
+                    self.correct_stage_voltage()
+                if self.lock_xypos_box.isChecked():
+                    self.correct_xystage_voltage()
 
     def new_mov_avg(self):
         self.avg_number = None
@@ -1509,12 +1509,12 @@ class captureFrames(QtGui.QWidget):
     def stab_possize_inc(self):
         new_pos = textbox_int(self.stab_roi_size)+1
         self.stab_roi_size.setText(str(new_pos))
-        self.init_show_xy_stab()      
+        self.init_get_xy_stab()      
 
     def stab_possize_dec(self):
         new_pos = textbox_int(self.stab_roi_size)-1
         self.stab_roi_size.setText(str(new_pos))
-        self.init_show_xy_stab()    
+        self.init_get_xy_stab()    
         
     def stab_posx_inc(self):
         new_pos = textbox_int(self.stab_roi_x)+1
@@ -1532,8 +1532,8 @@ class captureFrames(QtGui.QWidget):
         new_pos = textbox_int(self.stab_roi_y)-1
         self.stab_roi_y.setText(str(new_pos))
     
-    def init_show_xy_stab(self):
-        if not self.lock_xypos_box.isChecked(): #initialize if xy stabilization isn't on.
+    def init_get_xy_stab(self):
+        if self.get_xy_stab.isChecked() and (not self.lock_xypos_box.isChecked()): #initialize if xy stabilization isn't on.
             self.xy_stab_image_number = 0
             x_pos = textbox_int(self.stab_roi_x)
             y_pos = textbox_int(self.stab_roi_y)
@@ -1543,6 +1543,7 @@ class captureFrames(QtGui.QWidget):
                 image_size = self.image.shape[0]
                 self.stab_roi_size.setText(str(image_size))     
             self.xy_stab_image = self.camera.get_image()[y_pos:y_pos+image_size, x_pos:x_pos+image_size]/float(xy_navg)
+            self.xy_stab_image_med = np.empty((image_size, image_size, xy_navg))
  
             #init bandpass mask
             try:
@@ -1555,12 +1556,16 @@ class captureFrames(QtGui.QWidget):
             except:
                 self.bp_mask = None
                 print('No bandpass filter used')
+        elif not self.get_xy_stab.isChecked(): #don't show the xy stabilization image if it isn't being updated
+            self.show_xy_stab.setChecked(False)
 
-
+    def init_show_xy_stab(self):
+        if self.show_xy_stab.isChecked() and (not self.get_xy_stab.isChecked()):
+            self.get_xy_stab.setChecked(True)
+            self.init_get_xy_stab()
         
     def set_lock_xypos(self):
         if self.lock_xypos_box.isChecked():
-           self.xy_stab_image_number = 0
            self.getting_xy_lock = True
            self.xfit_data = []
            self.yfit_data = []
@@ -1600,6 +1605,8 @@ class captureFrames(QtGui.QWidget):
         self.y_v_out.setText(str( round(self.y_pstage.stage_output_voltage, 3) ))
      
     def correct_xystage_voltage(self):
+        spot_v_thresh = 0.5 #if the voltage correction is more than this but less than max_v_adjust update the lock position instead of updating the ouput voltage
+        max_v_adjust = 1.0 #if the voltage correction is more than this exit the feedback loop
         xy_navg = textbox_int(self.xypos_navg)
       
         if self.xy_stab_image_number == 0:
@@ -1617,8 +1624,18 @@ class captureFrames(QtGui.QWidget):
             y_update_voltage = self.y_pstage.stage_output_voltage + get_voltage_adjustment(self.ypos_lock, self.y_fit, textbox_float(self.ypos_to_voltage))
             
             #set update voltage
-            self.x_pstage.set_output_voltage(x_update_voltage)
-            self.y_pstage.set_output_voltage(y_update_voltage)
+            update_v_dist = np.sqrt( (self.x_pstage.stage_output_voltage-x_update_volatage)**2 + (self.y_pstage.stage_output_voltage-y_update_volatage)**2 )
+            if update_v_dist < spot_v_thresh: #update voltage as normal
+                self.x_pstage.set_output_voltage(x_update_voltage)
+                self.y_pstage.set_output_voltage(y_update_voltage)
+            elif update_v_dist < max_v_adjust: #shift lock position
+                self.x_pos_lock = self.x_fit
+                self.y_pos_lock = self.y_fit
+            else: #exit loop if correction is too large
+                self.lock_xypos_box.setChecked(False)
+                self.x_fit_disp.setText('')
+                self.y_fit_disp.setText('')
+                print('Attempted xy voltage adjustment too large.')
             
             #update display
             self.x_fit_disp.setText('X fit = ' + str(self.x_fit) )
