@@ -94,7 +94,7 @@ class KPZ101(object):
             self.stage_set_voltage = 0
     
     def close_stage(self):
-        print 'Closing Stage'
+        print ('Closing stage with serial number ' + self.serialNo)
         self.set_output_voltage(0)
         time.sleep(2) 
         self.piezo.PCC_Disable(self.serialNo)

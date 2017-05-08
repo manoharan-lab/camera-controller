@@ -703,20 +703,20 @@ class captureFrames(QtGui.QWidget):
             #self.avg_number is current position in rolling buffer
             if self.avg_number == None: # if this is the start of a new moving average
                 self.avg_number = 0
-                self.avg_images = np.zeros((int(self.image.shape[0]),int(self.image.shape[1]), int(n_mov_avg)))
-                #self.image = np.zeros((int(self.image.shape[0]),int(self.image.shape[1]))
+                self.avg_images = np.zeros((self.image.shape[0],self.image.shape[1], int(n_mov_avg)))
+                self.image = np.zeros((self.image.shape[0],self.image.shape[1]))
             if use_thorcam_fs:
-                self.avg_images[:,:,self.avg_number] = self.camera_fs.get_image()
+                self.avg_images[:,:,int(self.avg_number)] = self.camera_fs.get_image()
             else:
-                self.avg_images[:,:,self.avg_number] = self.camera.get_image()
+                self.avg_images[:,:,int(self.avg_number)] = self.camera.get_image()
             if self.avg_initiating:
                 #add each image with the appropriate weight
-                self.image = self.image*(1-1.0/(self.avg_number+1)) + self.avg_images[:,:,self.avg_number]/float(self.avg_number+1)
+                self.image = self.image*(1-1.0/(self.avg_number+1)) + self.avg_images[:,:,int(self.avg_number)]/float(self.avg_number+1)
                 if self.avg_number == int(n_mov_avg)-1:
                     self.avg_initiating = False
             else:
                 #add new image and subtract oldest image
-                self.image = self.image + (self.avg_images[:,:,self.avg_number] - self.avg_images[:,:,(self.avg_number+1)%n_mov_avg])/n_mov_avg
+                self.image = self.image + (self.avg_images[:,:,int(self.avg_number)] - self.avg_images[:,:,int((self.avg_number+1)%n_mov_avg)])/n_mov_avg
             
             self.avg_number = (self.avg_number + 1)%n_mov_avg
         
@@ -1569,10 +1569,44 @@ class captureFrames(QtGui.QWidget):
            self.getting_xy_lock = True
            self.xfit_data = []
            self.yfit_data = []
+           self.startend_xy_stab(False)
+           
         else:
+            self.startend_xy_stab(True)
+    
+    
+    def startend_xy_stab(self, ending):
+        #ending = True if ending, False if starting
+        
+        if ending:
             self.x_fit_disp.setText('')
             self.y_fit_disp.setText('')
-    
+        self.get_xy_stab.setEnabled(ending)
+        self.xypos_navg.setEnabled(ending)
+        self.stab_roi_size.setEnabled(ending)
+        self.stab_roi_x.setEnabled(ending)
+        self.stab_roi_y.setEnabled(ending)
+        self.stabsize_inc_but.setEnabled(ending)
+        self.stabsize_dec_but.setEnabled(ending)
+        self.stabx_inc_but.setEnabled(ending)
+        self.stabx_dec_but.setEnabled(ending)
+        self.staby_inc_but.setEnabled(ending)
+        self.staby_dec_but.setEnabled(ending)
+        self.bright_dark_spot.setEnabled(ending)
+        self.fit_diam.setEnabled(ending)
+        self.bp_small_size.setEnabled(ending)
+        self.bp_large_size.setEnabled(ending)            
+        self.xstage_serialNo.setEnabled(ending)
+        self.ystage_serialNo.setEnabled(ending)
+        self.close_open_xystage_but.setEnabled(ending)
+        self.x_v_inc_but.setEnabled(ending)
+        self.x_v_dec_but.setEnabled(ending)
+        self.y_v_inc_but.setEnabled(ending)
+        self.y_v_dec_but.setEnabled(ending)
+        self.xy_v_step.setEnabled(ending)          
+            
+        
+        
     def close_open_xystage(self):
         self.lock_xypos_box.setChecked(False)
         if self.close_open_xystage_but.text() == 'Close\nStages':                
@@ -1624,7 +1658,8 @@ class captureFrames(QtGui.QWidget):
             y_update_voltage = self.y_pstage.stage_output_voltage + get_voltage_adjustment(self.ypos_lock, self.y_fit, textbox_float(self.ypos_to_voltage))
             
             #set update voltage
-            update_v_dist = np.sqrt( (self.x_pstage.stage_output_voltage-x_update_volatage)**2 + (self.y_pstage.stage_output_voltage-y_update_volatage)**2 )
+            update_v_dist = np.sqrt( (self.x_pstage.stage_output_voltage-x_update_voltage)**2 + (self.y_pstage.stage_output_voltage-y_update_voltage)**2 )
+            if self.x_fit == 0: update_v_dist = 200 #if the fit failed end the stabilization loop
             if update_v_dist < spot_v_thresh: #update voltage as normal
                 self.x_pstage.set_output_voltage(x_update_voltage)
                 self.y_pstage.set_output_voltage(y_update_voltage)
@@ -1633,9 +1668,8 @@ class captureFrames(QtGui.QWidget):
                 self.y_pos_lock = self.y_fit
             else: #exit loop if correction is too large
                 self.lock_xypos_box.setChecked(False)
-                self.x_fit_disp.setText('')
-                self.y_fit_disp.setText('')
-                print('Attempted xy voltage adjustment too large.')
+                self.startend_xy_stab(True)
+                print('Attempted xy voltage adjustment too large or particle fit failed.')
             
             #update display
             self.x_fit_disp.setText('X fit = ' + str(self.x_fit) )
@@ -1705,17 +1739,17 @@ def spot_fit(im, diameter, dark_spot = False, x_g = None, y_g=None, x_tol = 1.0,
     if x_g == None: x_g = im.shape[0]/2.
     if y_g == None: y_g = im.shape[1]/2.
             
-    f = tp.locate(im, diameter = diameter, invert = dark_spot)
-    print(f)
-    f = f[ f['x'] > x_g*(1-x_tol) ]
-    f = f[ f['x'] < x_g*(1+x_tol) ]
-    f = f[ f['y'] > y_g*(1-y_tol) ]
-    f = f[ f['y'] < y_g*(1+y_tol) ]
-    if len(f) != 1:
-        print( str(len(f)) +' spots found. Change fit parameters or image so exactly 1 spot is found.')
+    fit_res = tp.locate(im, diameter = diameter, invert = dark_spot)
+    fit_res2 = fit_res[ fit_res['x'] > x_g*(1-x_tol) ]
+    fit_res2 = fit_res2[ fit_res2['x'] < x_g*(1+x_tol) ]
+    fit_res2 = fit_res2[ fit_res2['y'] > y_g*(1-y_tol) ]
+    fit_res2 = fit_res2[ fit_res2['y'] < y_g*(1+y_tol) ]
+    if len(fit_res2) != 1:
+        print( str(len(fit_res2)) +' spots found. Change fit parameters or image so exactly 1 spot is found.')
+        print(fit_res)
         return 0, 0
-    x_fit = f['x'][0]
-    y_fit = f['y'][0]
+    x_fit = fit_res2['x'][0]
+    y_fit = fit_res2['y'][0]
     return x_fit, y_fit
                
 def get_voltage_adjustment(feedback_measure_lock, feedback_measure_new, fb_measure_to_voltage):
