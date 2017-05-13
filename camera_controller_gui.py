@@ -516,10 +516,12 @@ class captureFrames(QtGui.QWidget):
         # Tab 6, x-y active stabilization
         ################################
         if thorlabs_KPZ101_available:
-            self.get_xy_stab = make_checkbox("Get X-Y Stabilization Image", callback = self.init_get_xy_stab)
+            self.get_xy_stab = make_checkbox("Get XY Image", callback = self.init_get_xy_stab)
             self.show_xy_stab = make_checkbox("Show Image", callback = self.init_show_xy_stab)
             self.xypos_navg = make_LineEdit('33',width=40)
             self.xypos_navg.editingFinished.connect(self.init_get_xy_stab)
+            self.xy_get_background_but = make_button('Get Bkgd', self.get_xy_background, self, width=60, height = 20)
+            self.xy_get_background_but.setCheckable(True)
             self.stab_roi_size = make_LineEdit('0',width=40)
             self.stab_roi_size.editingFinished.connect(self.init_get_xy_stab)
             self.stab_roi_x = make_LineEdit('0',width=40)
@@ -532,7 +534,7 @@ class captureFrames(QtGui.QWidget):
             self.staby_dec_but = make_button("-", self.stab_posy_dec, width = 20, height = 20)
             self.bright_dark_spot = make_checkbox("Dark?")
             self.fit_diam = make_LineEdit('7',width=20)
-            self.center_tol = make_LineEdit('0.1', width = 20)
+            self.center_tol = make_LineEdit('0.5', width = 20)
             self.bp_small_size =  make_LineEdit('0.5',width=20)
             self.bp_small_size.editingFinished.connect(self.init_get_xy_stab)
             self.bp_large_size =  make_LineEdit('5',width=20)            
@@ -566,7 +568,7 @@ class captureFrames(QtGui.QWidget):
             self.yfit_ax.hold(False) #discard old plots
             self.yfit_canvas = FigureCanvas(self.yfit_figure)      
             tab6 = ("XY-Stab",
-                    [make_HBox([self.get_xy_stab, self.show_xy_stab, make_label('XY fit frame med:', height=15, align='top'), self.xypos_navg,1]),
+                    [make_HBox([self.get_xy_stab, self.show_xy_stab, make_label('Frame Med:', height=15, align='top'), self.xypos_navg, self.xy_get_background_but,1]),
                      make_label("Region of Interest (from main camera image):", height=20, align='bottom', bold=True),
                      make_HBox([make_label('Width/Height:', bold=True, height=15, align='top'), self.stab_roi_size,
                         make_VBox([self.stabsize_inc_but, self.stabsize_dec_but,1]),
@@ -738,6 +740,8 @@ class captureFrames(QtGui.QWidget):
             self.xy_stab_image_med[:,:,self.xy_stab_image_number] = self.camera.get_image()[y_pos:y_pos+image_size, x_pos:x_pos+image_size]
             if self.xy_stab_image_number == xy_navg-1: #update output image
                 self.xy_stab_image = np.median(self.xy_stab_image_med, 2)
+                if self.xy_get_background_but.isChecked():
+                    self.xy_stab_image = self.xy_stab_image-(self.xy_background_image-5000) # the "-5000" is so that there are not negative numbers. (data types are unsigned) 
                 if self.bp_mask != None:
                     self.xy_stab_image = ff.fourier_filter2D(self.xy_stab_image, self.bp_mask)
             self.xy_stab_image_number = (self.xy_stab_image_number + 1)%xy_navg          
@@ -1531,6 +1535,9 @@ class captureFrames(QtGui.QWidget):
     def stab_posy_dec(self):
         new_pos = textbox_int(self.stab_roi_y)-1
         self.stab_roi_y.setText(str(new_pos))
+    def get_xy_background(self):
+        if self.xy_get_background_but.isChecked():
+            self.xy_background_image = np.array(self.xy_stab_image)
     
     def init_get_xy_stab(self):
         if self.get_xy_stab.isChecked() and (not self.lock_xypos_box.isChecked()): #initialize if xy stabilization isn't on.
@@ -1603,7 +1610,8 @@ class captureFrames(QtGui.QWidget):
         self.x_v_dec_but.setEnabled(ending)
         self.y_v_inc_but.setEnabled(ending)
         self.y_v_dec_but.setEnabled(ending)
-        self.xy_v_step.setEnabled(ending)          
+        self.xy_v_step.setEnabled(ending)
+        self.xy_get_background_but.setEnabled(ending)       
             
         
         
