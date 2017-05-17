@@ -110,7 +110,6 @@ class KPZ101(object):
             v_out_set = 100
         if v_out_set < 0:
             v_out_set = 0
-            
         self.piezo.PCC_SetOutputVoltage(self.serialNo, int(round(v_out_set/100.0*32767)) )
 
             

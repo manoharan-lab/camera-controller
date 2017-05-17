@@ -307,6 +307,17 @@ class captureFrames(QtGui.QWidget):
         self.frametime.editingFinished.connect(self.change_frametime)
         self.framerate = make_LineEdit('NA',width=60)
         self.framerate.editingFinished.connect(self.change_framerate)
+        
+        self.get_black_image =  make_button('Get', self.set_black_image, height = 20)
+        self.apply_black_image =  make_checkbox("Apply", callback = self.set_black_correction)
+        self.apply_black_image.setEnabled(False)
+        self.show_black_image = make_checkbox("Show", callback = self.uncheck_show_grey)
+        self.show_black_image.setEnabled(False)        
+        self.get_grey_image = make_button('Get', self.set_grey_image, height = 20)
+        self.apply_grey_image = make_checkbox("Apply", callback = self.set_grey_correction)
+        self.apply_grey_image.setEnabled(False)
+        self.show_grey_image = make_checkbox("Show", callback = self.uncheck_show_black)
+        self.show_grey_image.setEnabled(False)
 
         i = 0
         opened = False
@@ -321,10 +332,9 @@ class captureFrames(QtGui.QWidget):
             print("failed to open a camera")
 
         tab2_item_list = ["Modify Camera Settings",
-                 make_label("Camera:", bold=True),
-                 self.camera_choice,
-                 make_label("Bit Depth:", bold=True),
-                 self.bitdepth_choice,
+                 make_HBox([make_VBox([make_label("Camera:", bold=True) ,self.camera_choice,1]), 
+                            make_VBox([make_label("Bit Depth:", bold=True), self.bitdepth_choice,1]), 1]),
+
                  "Must match the data output type in camera manufacturer's software",
                  make_label("Region of Interest Size:", bold=True,
                             align='bottom', height=30),
@@ -337,7 +347,10 @@ class captureFrames(QtGui.QWidget):
                  make_HBox([make_label('Exposure Time (ms):', bold=True, height=15, align='top'), self.exposure, 1]),
                  make_HBox([make_label('Frame Time (ms):', bold=True, height=15, align='top'), self.frametime,
                             make_label('Frame Rate (Hz):', bold=True, height=15, align='top'), self.framerate, 1]),
-                 make_HBox([make_label('Rolling Buffer Size (# images):', bold=True, height=15, width=180, align='top'), self.buffersize, 1])]
+                 make_HBox([make_label('Rolling Buffer Size (# images):', bold=True, height=15, width=180, align='top'), self.buffersize, 1]),
+                 make_label('Black and Grey Image Corrections:', bold = True),
+                 make_HBox([make_label('Black Correction:'), self.get_black_image, self.apply_black_image, self.show_black_image,1]),
+                 make_HBox([make_label('Grey Correction:'), self.get_grey_image, self.apply_grey_image, self.show_grey_image,1])]
         
         if thorcamfs_available and thorlabs_KPZ101_available:
             self.config_thorcam_fs = make_checkbox("Set ThorCam FS Camera Parameters", callback = self.switch_configurable_camera)
@@ -350,7 +363,7 @@ class captureFrames(QtGui.QWidget):
             tab2_item_list.insert(1, make_HBox([self.config_thorcam_fs, self.close_open_thorcam_fs_but,1]) )
             tab2_item_list = tab2_item_list +[make_label('\nFeedback Measure vs. time/(30 ms)', bold=True, height=30, align='top'), 
                                                 self.fb_measure_canvas]
-            
+           
         tab2 = ("Camera", tab2_item_list+[1])
 
         #########################################
@@ -699,35 +712,52 @@ class captureFrames(QtGui.QWidget):
         else:
             use_thorcam_fs = False
             
-               
-        n_mov_avg = textbox_float(self.nmovavg) #get number of frames to use in moving average
-        if self.applymovavg.isChecked() and n_mov_avg > 1:
-            #self.avg_number is current position in rolling buffer
-            if self.avg_number == None: # if this is the start of a new moving average
-                self.avg_number = 0
-                self.avg_images = np.zeros((self.image.shape[0],self.image.shape[1], int(n_mov_avg)))
-                self.image = np.zeros((self.image.shape[0],self.image.shape[1]))
-            if use_thorcam_fs:
-                self.avg_images[:,:,int(self.avg_number)] = self.camera_fs.get_image()
-            else:
-                self.avg_images[:,:,int(self.avg_number)] = self.camera.get_image()
-            if self.avg_initiating:
-                #add each image with the appropriate weight
-                self.image = self.image*(1-1.0/(self.avg_number+1)) + self.avg_images[:,:,int(self.avg_number)]/float(self.avg_number+1)
-                if self.avg_number == int(n_mov_avg)-1:
-                    self.avg_initiating = False
-            else:
-                #add new image and subtract oldest image
-                self.image = self.image + (self.avg_images[:,:,int(self.avg_number)] - self.avg_images[:,:,int((self.avg_number+1)%n_mov_avg)])/n_mov_avg
-            
-            self.avg_number = (self.avg_number + 1)%n_mov_avg
         
-        else:#if no moving average is used
-            if use_thorcam_fs:
-                self.image = self.camera_fs.get_image()
-            else:
-                self.image = self.camera.get_image()
-
+        
+        if self.show_black_image.isChecked():
+            self.image = np.array(self.black_image)
+        elif self.show_grey_image.isChecked():
+            self.image = np.array(self.grey_image)
+        else: #display normal image              
+            n_mov_avg = textbox_float(self.nmovavg) #get number of frames to use in moving average
+            if self.applymovavg.isChecked() and n_mov_avg > 1:
+                #self.avg_number is current position in rolling buffer
+                if self.avg_number == None: # if this is the start of a new moving average
+                    self.avg_number = 0
+                    self.avg_images = np.zeros((self.image.shape[0],self.image.shape[1], int(n_mov_avg)))
+                    self.image = np.zeros((self.image.shape[0],self.image.shape[1]))
+                if use_thorcam_fs:
+                    self.avg_images[:,:,int(self.avg_number)] = self.camera_fs.get_image()
+                else:
+                    self.avg_images[:,:,int(self.avg_number)] = self.camera.get_image()
+                if self.avg_initiating:
+                    #add each image with the appropriate weight
+                    self.image = self.image*(1-1.0/(self.avg_number+1)) + self.avg_images[:,:,int(self.avg_number)]/float(self.avg_number+1)
+                    if self.avg_number == int(n_mov_avg)-1:
+                        self.avg_initiating = False
+                else:
+                    #add new image and subtract oldest image
+                    self.image = self.image + (self.avg_images[:,:,int(self.avg_number)] - self.avg_images[:,:,int((self.avg_number+1)%n_mov_avg)])/n_mov_avg
+                
+                self.avg_number = (self.avg_number + 1)%n_mov_avg
+            
+            else:#if no moving average is used
+                if use_thorcam_fs:
+                    self.image = self.camera_fs.get_image()
+                else:
+                    self.image = self.camera.get_image()
+        
+        #apply black and grey corrections
+        #note that normal time series will be saved wihout black and grey corrections
+        #However, if using the "Save" and "Slow time series" buttons the datea will be saved with these corrections!   
+        if self.apply_black_image.isChecked():
+            self.image = self.image-self.black_correction
+        if self.apply_grey_image.isChecked():
+            self.image = self.image*self.grey_correction
+        if self.bit_depth == 8: maxval = 255
+        elif self.bit_depth > 8: maxval = 65535
+        self.image.clip(0,maxval, self.image)
+        
         #get image to use for xy_stabilization
         if thorlabs_KPZ101_available and self.get_xy_stab.isChecked():
             x_pos = textbox_int(self.stab_roi_x)
@@ -840,6 +870,57 @@ class captureFrames(QtGui.QWidget):
                 if self.lock_xypos_box.isChecked():
                     self.correct_xystage_voltage()
 
+    def set_black_image(self):
+        self.black_image = np.array(self.image)
+        self.set_black_correction()
+        self.apply_black_image.setEnabled(True)
+        self.show_black_image.setEnabled(True)
+        
+    def set_black_correction(self):
+        self.black_correction = self.black_image - np.median(self.black_image)
+        if self.apply_grey_image.isChecked():
+            self.set_grey_correction()        
+
+        #prevent black and grey images from being acquired if corrections are being applied
+        if self.apply_black_image.isChecked() or self.apply_grey_image.isChecked():
+            self.get_black_image.setEnabled(False)
+            self.get_grey_image.setEnabled(False)
+        else:
+            self.get_black_image.setEnabled(True)
+            self.get_grey_image.setEnabled(True)    
+
+    
+    def set_grey_image(self):
+        self.grey_image = np.array(self.image)
+        self.set_grey_correction()
+        self.apply_grey_image.setEnabled(True)
+        self.show_grey_image.setEnabled(True)    
+    
+    def set_grey_correction(self):
+        if self.apply_black_image.isChecked():
+            denominator = self.grey_image - self.black_correction
+        else:
+            denominator = np.array(self.grey_image)
+        denominator[denominator <= 0] = 1 #prevent divide by zero or negative number
+            
+        self.grey_correction = float(np.median(self.grey_image))/denominator
+
+        #prevent black and grey images from being acquired if corrections are being applied
+        if self.apply_black_image.isChecked() or self.apply_grey_image.isChecked():
+            self.get_black_image.setEnabled(False)
+            self.get_grey_image.setEnabled(False)
+        else:
+            self.get_black_image.setEnabled(True)
+            self.get_grey_image.setEnabled(True)
+    
+    def uncheck_show_black(self):
+        if self.show_grey_image.isChecked():
+            self.show_black_image.setChecked(False)
+
+    def uncheck_show_grey(self):
+        if self.show_black_image.isChecked():
+            self.show_grey_image.setChecked(False)
+            
     def new_mov_avg(self):
         self.avg_number = None
         self.avg_initiating = True
@@ -847,9 +928,9 @@ class captureFrames(QtGui.QWidget):
     def set_default_contrast(self):
         #resets image contrast to default
         if self.bit_depth == 8:
-            maxval = 2**8-1
+            maxval = 255
         elif self.bit_depth > 8:
-            maxval = 2**16-1
+            maxval = 65535
         self.minpixval.setText('0')
         self.maxpixval.setText(str(maxval))
 
@@ -1678,7 +1759,6 @@ class captureFrames(QtGui.QWidget):
                 self.lock_xypos_box.setChecked(False)
                 self.startend_xy_stab(True)
                 print('Attempted xy voltage adjustment too large or particle fit failed.')
-            
             #update display
             self.x_fit_disp.setText('X fit = ' + str(self.x_fit) )
             self.y_fit_disp.setText('Y fit = ' + str(self.y_fit) )
