@@ -236,6 +236,7 @@ class captureFrames(QtGui.QWidget):
         if thorcamfs_available and thorlabs_KPZ101_available:
             self.stage_serialNo = make_LineEdit('29500244',width=60)
             self.close_open_stage_but = make_button('Open\nStage', self.close_open_stage)
+            self.get_z_zero_but = make_button('Set Zero', self.get_z_zero, width = 60, height = 20)
             self.v_out = make_label('NA',bold = True,width=40)
             self.v_out.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
             #self.v_out.editingFinished.connect(self.change_output_voltage)
@@ -255,7 +256,7 @@ class captureFrames(QtGui.QWidget):
 
             tab1_item_list = tab1_item_list + [make_label('____________________________________________', height=15, width = 300),
                  make_HBox([make_label('Z Stage Driver SN:', bold=True, height=15, align='top'), self.stage_serialNo,
-                    self.close_open_stage_but, 1]),
+                    self.close_open_stage_but, self.get_z_zero_but, 1]),
                  make_HBox([make_label('Stage Output Voltage: ', bold=True, height=15, width = 130, align='top'), self.v_out,
                             make_label('%', bold=True, height=15, align='top'),
                             make_VBox([self.v_inc_but, self.v_dec_but,1]), 
@@ -553,9 +554,10 @@ class captureFrames(QtGui.QWidget):
             self.bp_large_size =  make_LineEdit('5',width=20)            
             self.bp_large_size.editingFinished.connect(self.init_get_xy_stab)
             
-            self.xstage_serialNo = make_LineEdit('29500918',width=60)
-            self.ystage_serialNo = make_LineEdit('29500937',width=60)
+            self.xstage_serialNo = make_LineEdit('29501020',width=60)
+            self.ystage_serialNo = make_LineEdit('29501025',width=60)
             self.close_open_xystage_but = make_button('Open\nStages', self.close_open_xystage)
+            self.get_xy_zero_but = make_button('Set Zero', self.get_xy_zero, width = 60, height = 20)
             self.x_v_out = make_label('NA',bold = True,width=40)
             self.x_v_out.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
             self.y_v_out = make_label('NA',bold = True,width=40)
@@ -593,8 +595,10 @@ class captureFrames(QtGui.QWidget):
                          make_label('Diam (px):', height=15, align='top'), self.fit_diam, 
                          make_label('BP lims:', height=15, align='top'), self.bp_small_size, self.bp_large_size,
                          make_label('Cen. Tol.:', height=15, align='top'), self.center_tol, 1]),
-                     make_HBox([make_label('Piezo Drivers SN    X:', bold=True, height=15, width = 120, align='top'), self.xstage_serialNo,
-                         make_label('Y:', bold=True, height=15, width = 20, align='top'), self.ystage_serialNo, self.close_open_xystage_but, 1]),
+                     make_HBox([make_label('Piezo Drivers\nSerial #\'s', bold=True, height=30, width = 80, align='top'), 
+                         make_VBox([make_label('X:', bold=True, height=15, width = 20, align='top'), make_label('Y:', bold=True, height=15, width = 20, align='top'),1]),
+                         make_VBox([self.xstage_serialNo, self.ystage_serialNo,1]),
+                         self.close_open_xystage_but, self.get_xy_zero_but, 1]),
                      make_HBox([make_label('Stage Voltages    X:', bold=True, height=15, width = 110, align='top'), self.x_v_out,
                          make_label('%', bold=True, height=15, align='top'), make_VBox([self.x_v_inc_but, self.x_v_dec_but,1]),
                          make_label('Y:', bold=True, height=15, align='top'), self.y_v_out, make_label('%', bold=True, height=15, align='top'),
@@ -707,7 +711,7 @@ class captureFrames(QtGui.QWidget):
     def timerEvent(self, event):
         #obtain most recent image
         frame_number = self.camera.get_frame_number()
-        if thorcamfs_available and self.config_thorcam_fs.isChecked() and self.close_open_thorcam_fs_but.text() == 'Close\nThorCam FS' and not self.show_xy_stab.isChecked():                
+        if thorcamfs_available and thorlabs_KPZ101_available and self.config_thorcam_fs.isChecked() and self.close_open_thorcam_fs_but.text() == 'Close\nThorCam FS' and not self.show_xy_stab.isChecked():                
             use_thorcam_fs = True
         else:
             use_thorcam_fs = False
@@ -746,10 +750,11 @@ class captureFrames(QtGui.QWidget):
                     self.image = self.camera_fs.get_image()
                 else:
                     self.image = self.camera.get_image()
-        
+            
         #apply black and grey corrections
         #note that normal time series will be saved wihout black and grey corrections
-        #However, if using the "Save" and "Slow time series" buttons the datea will be saved with these corrections!   
+        #However, if using the "Save" and "Slow time series" buttons the datea will be saved with these corrections!
+        #corrections are done as described in the photon focus user manual.   
         if self.apply_black_image.isChecked():
             self.image = self.image-self.black_correction
         if self.apply_grey_image.isChecked():
@@ -1103,7 +1108,7 @@ class captureFrames(QtGui.QWidget):
 
     def revise_camera_settings(self):
         camera_str =  self.camera_choice.currentText()
-        if thorcamfs_available and self.config_thorcam_fs.isChecked(): #configure ThorCam FS
+        if thorcamfs_available and thorlabs_KPZ101_available and self.config_thorcam_fs.isChecked(): #configure ThorCam FS
             cam_to_revise = self.camera_fs
         else: #configure main camera
             cam_to_revise = self.camera
@@ -1427,6 +1432,9 @@ class captureFrames(QtGui.QWidget):
             
         self.v_out.setText(v_out_str)           
         self.v_step.setText(v_step_str)           
+    
+    def get_z_zero(self):
+        self.z_pstage.get_zero_offset()
                     
     def change_output_voltage(self):
         v_out_set = textbox_float(self.v_out)
@@ -1435,7 +1443,7 @@ class captureFrames(QtGui.QWidget):
         if v_out_set < 0:
             v_out_set = 0
         
-        self.z_pstage.set_output_voltage(v_out_set)
+        self.z_pstage.set_output_voltage(v_out_set-self.z_pstage.zero_offset)
 
                 
     def inc_output_voltage(self):
@@ -1532,7 +1540,7 @@ class captureFrames(QtGui.QWidget):
         
         else:
             #set update voltage
-            self.z_pstage.set_output_voltage(update_voltage)
+            self.z_pstage.set_output_voltage(update_voltage - self.z_pstage.zero_offset)
             self.feedback_measure_disp.setText('Feedback measure = ' + str(self.feedback_measure) )
             self.fb_measure_data.append(self.feedback_measure)
             if not len(self.fb_measure_data)%100:
@@ -1544,7 +1552,7 @@ class captureFrames(QtGui.QWidget):
                     
 
     def mousePressEvent(self, QMouseEvent):
-        if self.max_spot_int_but.isChecked():
+        if thorcamfs_available and thorlabs_KPZ101_available and self.max_spot_int_but.isChecked():
             mouse_pos = QMouseEvent.pos()
             mouse_pos = np.array([mouse_pos.x(), mouse_pos.y()])
             if mouse_pos[0] >= 10 and mouse_pos[0] < 910 and mouse_pos[1] >= 10 and mouse_pos[1] < 910:
@@ -1572,7 +1580,7 @@ class captureFrames(QtGui.QWidget):
             v_values = np.linspace(v_guess-v_range/2.0, v_guess+v_range/2.0, 10)
             spot_intensities = np.empty(v_values.shape)
             for ii in range(len(v_values)):
-                self.z_pstage.set_output_voltage(v_values[ii])
+                self.z_pstage.set_output_voltage(v_values[ii] - self.z_pstage.zero_offset)
                 time.sleep(0.1)
                 self.image = self.camera.get_image()
                 self.showImage()                
@@ -1587,7 +1595,7 @@ class captureFrames(QtGui.QWidget):
             else:
                 v_range = 0.0
         
-        self.z_pstage.set_output_voltage( v_values[spot_intensities.argmax()] )        
+        self.z_pstage.set_output_voltage( v_values[spot_intensities.argmax()] - self.z_pstage.zero_offset)        
         self.max_spot_int_but.setChecked(False)
         
         
@@ -1750,8 +1758,8 @@ class captureFrames(QtGui.QWidget):
             update_v_dist = np.sqrt( (self.x_pstage.stage_output_voltage-x_update_voltage)**2 + (self.y_pstage.stage_output_voltage-y_update_voltage)**2 )
             if self.x_fit == 0: update_v_dist = 200 #if the fit failed end the stabilization loop
             if update_v_dist < spot_v_thresh: #update voltage as normal
-                self.x_pstage.set_output_voltage(x_update_voltage)
-                self.y_pstage.set_output_voltage(y_update_voltage)
+                self.x_pstage.set_output_voltage(x_update_voltage - self.x_pstage.zero_offset)
+                self.y_pstage.set_output_voltage(y_update_voltage - self.y_pstage.zero_offset)
             elif update_v_dist < max_v_adjust: #shift lock position
                 self.x_pos_lock = self.x_fit
                 self.y_pos_lock = self.y_fit
@@ -1773,6 +1781,10 @@ class captureFrames(QtGui.QWidget):
                     self.xfit_data = []
                     self.yfit_data = []  
     
+    def get_xy_zero(self):
+        self.x_pstage.get_zero_offset()
+        self.y_pstage.get_zero_offset()
+    
     def change_xystep_voltage(self):
         xy_v_step_set = textbox_float(self.xy_v_step)
         if xy_v_step_set > 100:
@@ -1790,7 +1802,7 @@ class captureFrames(QtGui.QWidget):
             x_v_out_set = 100
         if x_v_out_set < 0:
             x_v_out_set = 0
-        self.x_pstage.set_output_voltage(x_v_out_set)
+        self.x_pstage.set_output_voltage(x_v_out_set - self.x_pstage.zero_offset)
 
     def change_y_output_voltage(self):
         y_v_out_set = textbox_float(self.y_v_out)
@@ -1798,7 +1810,7 @@ class captureFrames(QtGui.QWidget):
             y_v_out_set = 100
         if y_v_out_set < 0:
             y_v_out_set = 0
-        self.y_pstage.set_output_voltage(y_v_out_set)
+        self.y_pstage.set_output_voltage(y_v_out_set - self.y_pstage.zero_offset)
                                     
     def x_dec_output_voltage(self):
         v_out_new = textbox_float(self.x_v_out) - textbox_float(self.xy_v_step)

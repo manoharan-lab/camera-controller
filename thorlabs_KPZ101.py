@@ -42,11 +42,13 @@ class KPZ101(object):
     def __init__(self):
         piezo_dm_file = 'C:\\Program Files\\Thorlabs\\Kinesis\\Thorlabs.MotionControl.DeviceManager.dll'
         piezo_file = 'C:\\Program Files\\Thorlabs\\Kinesis\\Thorlabs.MotionControl.KCube.Piezo.dll'
-        if os.path.isfile(piezo_dm_file) and os.path.isfile(piezo_file):        
+
+        #if os.path.isfile(piezo_dm_file) and os.path.isfile(piezo_file):        
+        if os.path.isfile(piezo_file):        
             dm = windll.LoadLibrary(piezo_dm_file)
             self.piezo = windll.LoadLibrary(piezo_file)
         else:
-            raise CameraOpenError("Thorlabs KPZ101 drivers not available.")
+            print("Thorlabs KPZ101 drivers not available.")
 
     def open_stage(self, serialNo, poll_time = 10, v_out = 0.0, v_step = 5.0 ):
         #poll_time for device is in ms      
@@ -88,6 +90,7 @@ class KPZ101(object):
             self.set_output_voltage(v_out)
             time.sleep(.1)
             self.get_output_voltage()
+            self.get_zero_offset()
         else:
             print("Opening piezo driver failed with error code "+str(i))          
             self.stage_output_voltage = 0
@@ -112,6 +115,15 @@ class KPZ101(object):
             v_out_set = 0
         self.piezo.PCC_SetOutputVoltage(self.serialNo, int(round(v_out_set/100.0*32767)) )
 
+    def get_zero_offset(self):
+        self.get_output_voltage()
+        v_before = self.stage_output_voltage
+        self.set_output_voltage(v_before)
+        time.sleep(1)
+        self.get_output_voltage()
+        self.zero_offset = self.stage_output_voltage-v_before
+        self.set_output_voltage(v_before-self.zero_offset)
+        print('Stage '+self.serialNo+ ' zero set to ' +str(self.zero_offset))
             
     def get_output_voltage(self):
         actual_v_out = self.piezo.PCC_GetOutputVoltage(self.serialNo)
