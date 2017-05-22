@@ -246,6 +246,7 @@ class captureFrames(QtGui.QWidget):
             self.v_step.editingFinished.connect(self.change_step_voltage) 
             self.lock_pos_box = make_checkbox("Lock Stage Position", callback = self.set_lock_pos)
             self.reset_zpos_but = make_button("Reset Z-Position", self.reset_zpos, width = 100, height = 30)
+            self.reset_zpos_but.setEnabled(False)
             self.feedback_measure_disp = make_label('')
             self.fb_measure_to_voltage = make_LineEdit('0',width=40)
             self.max_spot_int_but = make_button('Maximize\nIntensity')
@@ -571,6 +572,8 @@ class captureFrames(QtGui.QWidget):
             self.xpos_to_voltage = make_LineEdit('0.0',width=40)
             self.ypos_to_voltage = make_LineEdit('0.0',width=40)            
             self.lock_xypos_box = make_checkbox("Lock XY Position", callback = self.set_lock_xypos)
+            self.reset_xy_pos_but = make_button("Reset XY", self.reset_xy_pos, width = 60, height = 20)
+            self.reset_xy_pos_but.setEnabled(False)
             self.x_fit_disp = make_label('', width = 80)
             self.y_fit_disp = make_label('', width = 80)            
             
@@ -606,7 +609,7 @@ class captureFrames(QtGui.QWidget):
                          make_label('Step:', bold=True, height=15, align='top'), self.xy_v_step, 1]),  
                      make_HBox([make_label('Position-To-Volts Conversion:', bold=True, height=15, width = 180, align='top'), make_label('X: ',height=15),
                                 self.xpos_to_voltage, make_label('Y: ',height=15), self.ypos_to_voltage, 1]), 
-                     make_HBox([self.lock_xypos_box, self.x_fit_disp, self.y_fit_disp,1]),
+                     make_HBox([self.lock_xypos_box, self.reset_xy_pos_but, self.x_fit_disp, self.y_fit_disp,1]),
                      make_label('\nX Fit vs. Time', bold=True, height=30, align='top'),
                      self.xfit_canvas,
                      make_label('\nY Fit vs. Time', bold=True, height=30, align='top'),
@@ -827,10 +830,10 @@ class captureFrames(QtGui.QWidget):
                 write_timeseries(self.filename(), range(1, 1 + textbox_int(self.numOfFrames)), self.metadata, self)
                 if thorcamfs_available and thorlabs_KPZ101_available and self.close_open_stage_but.text() == 'Close\nStage':
                     np.savetxt(self.filename()+'_VOutHistory.txt', self.v_out_history, header = 'z_COM z_voltage(%) z_sum')
-                    if self.lock_pos_box.isChecked():
+                    '''if self.lock_pos_box.isChecked():
                         #Stop Stage feedback loop since saving the data can take a long time and stage position is not updated during saving.
                         self.lock_pos_box.setChecked(False)
-                        self.set_lock_pos()
+                        self.set_lock_pos()'''
 
 
                 increment_textbox(self.include_incrementing_image_num)
@@ -1478,21 +1481,24 @@ class captureFrames(QtGui.QWidget):
             self.feedback_measure_lock = get_feedback_measure(image)[0]
             self.resetting_z_pos = False
             self.fb_measure_data = []
-            self.v_step.setEnabled(False)
-            self.v_dec_but.setEnabled(False)
-            self.v_inc_but.setEnabled(False)            
-            self.fb_measure_to_voltage.setEnabled(False)
-            self.max_spot_int_but.setEnabled(False)
-            
+            self.startend_z_stab(False)
+                        
         else:
             self.v_step.setText(str( round(self.z_pstage.stage_step_voltage, 3) ))        
             self.v_out.setText(str( round(self.z_pstage.stage_output_voltage, 3) ))
-            self.feedback_measure_disp.setText('')
-            self.fb_measure_to_voltage.setEnabled(True)
-            self.v_step.setEnabled(True)
-            self.v_dec_but.setEnabled(True)
-            self.v_inc_but.setEnabled(True)
-            self.max_spot_int_but.setEnabled(True)
+            self.startend_z_stab(True)
+
+    
+    def startend_z_stab(self,ending):
+        if ending:
+            self.feedback_measure_disp.setText('')            
+        self.v_step.setEnabled(ending)
+        self.v_dec_but.setEnabled(ending)
+        self.v_inc_but.setEnabled(ending)            
+        self.max_spot_int_but.setEnabled(ending)
+        self.reset_zpos_but.setEnabled(ending)
+        self.close_open_stage_but.setEnabled(ending)
+        self.get_z_zero_but.setEnabled(ending)
             
     def reset_zpos(self):
         # check the loc_pos_box without triggering its callback
@@ -1500,13 +1506,9 @@ class captureFrames(QtGui.QWidget):
         self.resetting_z_pos = True
         self.lock_pos_box.blockSignals(True)
         self.lock_pos_box.setChecked(True)
-        self.lock_pos_box.blockSignals(False)
-        
-        self.v_step.setEnabled(False)
-        self.v_dec_but.setEnabled(False)
-        self.v_inc_but.setEnabled(False)            
-        self.fb_measure_to_voltage.setEnabled(False)
-        self.max_spot_int_but.setEnabled(False)
+        self.lock_pos_box.blockSignals(False)       
+        self.startend_z_stab(False)        
+
 
     def correct_stage_voltage(self):
         #update voltage output based on feedback spot position
@@ -1530,12 +1532,7 @@ class captureFrames(QtGui.QWidget):
             self.lock_pos_box.setChecked(False)
             self.v_out.setText( str( round(self.z_pstage.stage_output_voltage, 3) ) )
             self.v_step.setText( str( round(self.z_pstage.stage_step_voltage, 3) ) )
-            self.feedback_measure_disp.setText('')
-            self.fb_measure_to_voltage.setEnabled(True)
-            self.v_step.setEnabled(True)
-            self.v_dec_but.setEnabled(True)
-            self.v_inc_but.setEnabled(True)
-            self.max_spot_int_but.setEnabled(True)                      
+            self.startend_z_stab(True)            
             print('Attempted voltage adjustment too large')
         
         else:
@@ -1659,6 +1656,7 @@ class captureFrames(QtGui.QWidget):
         if self.show_xy_stab.isChecked() and (not self.get_xy_stab.isChecked()):
             self.get_xy_stab.setChecked(True)
             self.init_get_xy_stab()
+            self.divide_background.setChecked(False)
         
     def set_lock_xypos(self):
         if self.lock_xypos_box.isChecked():
@@ -1670,6 +1668,12 @@ class captureFrames(QtGui.QWidget):
         else:
             self.startend_xy_stab(True)
     
+    def reset_xy_pos(self):
+        self.lock_xypos_box.blockSignals(True)
+        self.lock_xypos_box.setChecked(True)
+        self.lock_xypos_box.blockSignals(False)
+        self.startend_xy_stab(False)
+        
     
     def startend_xy_stab(self, ending):
         #ending = True if ending, False if starting
@@ -1700,7 +1704,9 @@ class captureFrames(QtGui.QWidget):
         self.y_v_inc_but.setEnabled(ending)
         self.y_v_dec_but.setEnabled(ending)
         self.xy_v_step.setEnabled(ending)
-        self.xy_get_background_but.setEnabled(ending)       
+        self.xy_get_background_but.setEnabled(ending)
+        self.get_xy_zero_but.setEnabled(ending)
+        self.reset_xy_pos_but.setEnabled(ending)
             
         
         
