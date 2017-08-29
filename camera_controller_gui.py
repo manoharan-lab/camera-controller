@@ -151,6 +151,10 @@ class captureFrames(QtGui.QWidget):
         self.frame = QtGui.QLabel(self)
         self.frame.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignLeft)
         
+        self.feedback_measure = 0.0
+        self.fb_sum = 0.0
+        self.x_fit = 0.0
+        self.y_fit = 0.0
 
         #########################################
         # Tab 1, Main controls viewing/saving
@@ -816,6 +820,8 @@ class captureFrames(QtGui.QWidget):
                 self.timeseries_slow.setChecked(False)
                 if thorcamfs_available and thorlabs_KPZ101_available and self.close_open_stage_but.text() == 'Close\nStage':
                     np.savetxt(self.filename()+'_VOutHistory.txt', self.v_out_history, header = 'z_COM z_voltage(%) z_sum')
+                    if self.close_open_xystage_but.text() == 'Close\nStages':
+                        np.savetxt(self.filename()+'_VOutXYHistory.txt', self.v_out_xyhistory, header = 'x_fit(px) y_fit(px) x_voltage(%) y_voltage(%)')                    
                 self.next_directory()
                 
 
@@ -830,6 +836,8 @@ class captureFrames(QtGui.QWidget):
                 write_timeseries(self.filename(), range(1, 1 + textbox_int(self.numOfFrames)), self.metadata, self)
                 if thorcamfs_available and thorlabs_KPZ101_available and self.close_open_stage_but.text() == 'Close\nStage':
                     np.savetxt(self.filename()+'_VOutHistory.txt', self.v_out_history, header = 'z_COM z_voltage(%) z_sum')
+                    if self.close_open_xystage_but.text() == 'Close\nStages':
+                        np.savetxt(self.filename()+'_VOutXYHistory.txt', self.v_out_xyhistory, header = 'x_fit(px) y_fit(px) x_voltage(%) y_voltage(%)')                    
                     '''if self.lock_pos_box.isChecked():
                         #Stop Stage feedback loop since saving the data can take a long time and stage position is not updated during saving.
                         self.lock_pos_box.setChecked(False)
@@ -871,12 +879,14 @@ class captureFrames(QtGui.QWidget):
                 self.update_xy_output_voltage()
             if self.close_open_stage_but.text() == 'Close\nStage':
                 self.update_output_voltage()            
-                if self.timeseries.isChecked() or self.timeseries_slow.isChecked():
-                        self.v_out_history.append(np.array([self.feedback_measure, self.z_pstage.stage_output_voltage, self.fb_sum]))
                 if self.lock_pos_box.isChecked():
                     self.correct_stage_voltage()
                 if self.lock_xypos_box.isChecked():
                     self.correct_xystage_voltage()
+                if self.timeseries.isChecked() or self.timeseries_slow.isChecked():
+                    self.v_out_history.append(np.array([self.feedback_measure, self.z_pstage.stage_output_voltage, self.fb_sum]))
+                    if self.close_open_xystage_but.text() == 'Close\nStages':
+                        self.v_out_xyhistory.append(np.array([self.x_fit, self.y_fit, self.x_pstage.stage_output_voltage, self.y_pstage.stage_output_voltage]))
 
     def set_black_image(self):
         self.black_image = np.array(self.image)
@@ -1069,6 +1079,7 @@ class captureFrames(QtGui.QWidget):
     def collectTimeSeries(self):
         if thorcamfs_available and thorlabs_KPZ101_available and self.close_open_stage_but.text() == 'Close\nStage':
             self.v_out_history = []
+            self.v_out_xyhistory = []
         if (self.timeseries.isChecked()
             or self.timeseries_slow.isChecked()
             or self.save_buffer.isChecked()):
@@ -1764,8 +1775,11 @@ class captureFrames(QtGui.QWidget):
             update_v_dist = np.sqrt( (self.x_pstage.stage_output_voltage-x_update_voltage)**2 + (self.y_pstage.stage_output_voltage-y_update_voltage)**2 )
             if self.x_fit == 0: update_v_dist = 200 #if the fit failed end the stabilization loop
             if update_v_dist < spot_v_thresh: #update voltage as normal
-                self.x_pstage.set_output_voltage(x_update_voltage - self.x_pstage.zero_offset)
-                self.y_pstage.set_output_voltage(y_update_voltage - self.y_pstage.zero_offset)
+                if textbox_float(self.xpos_to_voltage) != 0 or textbox_float(self.ypos_to_voltage) != 0:
+                    self.x_pstage.set_output_voltage(x_update_voltage - self.x_pstage.zero_offset)
+                    self.y_pstage.set_output_voltage(y_update_voltage - self.y_pstage.zero_offset)
+                else:
+                    print('not updating xy-voltage')
             elif update_v_dist < max_v_adjust: #shift lock position
                 self.x_pos_lock = self.x_fit
                 self.y_pos_lock = self.y_fit
