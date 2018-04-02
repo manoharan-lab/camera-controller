@@ -541,7 +541,7 @@ class captureFrames(QtGui.QWidget):
             self.xypos_navg.editingFinished.connect(self.init_get_xy_stab)
             self.xy_get_background_but = make_button('Get Bkgd', self.get_xy_background, self, width=60, height = 20)
             self.xy_get_background_but.setCheckable(True)
-            self.stab_roi_size = make_LineEdit('0',width=40)
+            self.stab_roi_size = make_LineEdit('16',width=40)
             self.stab_roi_size.editingFinished.connect(self.init_get_xy_stab)
             self.stab_roi_x = make_LineEdit('0',width=40)
             self.stab_roi_y = make_LineEdit('0',width=40)
@@ -552,11 +552,12 @@ class captureFrames(QtGui.QWidget):
             self.staby_inc_but = make_button("+", self.stab_posy_inc, width = 20, height = 20)
             self.staby_dec_but = make_button("-", self.stab_posy_dec, width = 20, height = 20)
             self.bright_dark_spot = make_checkbox("Dark?")
-            self.fit_diam = make_LineEdit('7',width=20)
+            self.bright_dark_spot.setChecked(True)
+            self.fit_diam = make_LineEdit('9',width=20)
             self.center_tol = make_LineEdit('0.5', width = 20)
-            self.bp_small_size =  make_LineEdit('0.5',width=20)
+            self.bp_small_size =  make_LineEdit('1',width=20)
             self.bp_small_size.editingFinished.connect(self.init_get_xy_stab)
-            self.bp_large_size =  make_LineEdit('5',width=20)            
+            self.bp_large_size =  make_LineEdit('7',width=20)            
             self.bp_large_size.editingFinished.connect(self.init_get_xy_stab)
             
             self.xstage_serialNo = make_LineEdit('29501020',width=60)
@@ -783,7 +784,7 @@ class captureFrames(QtGui.QWidget):
             if self.xy_stab_image_number == xy_navg-1: #update output image
                 self.xy_stab_image = np.median(self.xy_stab_image_med, 2)
                 if self.xy_get_background_but.isChecked():
-                    self.xy_stab_image = self.xy_stab_image-(self.xy_background_image-5000) # the "-5000" is so that there are not negative numbers. (data types are unsigned) 
+                    self.xy_stab_image = self.xy_stab_image-(self.xy_background_image-15000) # the "-15000" is so that there are not negative numbers. (data types are unsigned) 
                 if self.bp_mask != None:
                     self.xy_stab_image = ff.fourier_filter2D(self.xy_stab_image, self.bp_mask)
             self.xy_stab_image_number = (self.xy_stab_image_number + 1)%xy_navg          
