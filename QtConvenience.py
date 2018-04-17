@@ -5,6 +5,16 @@ QtAlignmentLookup['top'] = QtCore.Qt.AlignTop
 QtAlignmentLookup['bottom'] = QtCore.Qt.AlignBottom
 QtAlignmentLookup['middle'] = QtCore.Qt.AlignCenter
 
+def make_qListWidget(multi_selection = True, height = None, width = None):
+    qlist = QtGui.QListWidget()
+    if multi_selection:
+        qlist.setSelectionMode(QtGui.QAbstractItemView.ExtendedSelection)
+    if height:
+        qlist.setFixedHeight(height)
+    if width:
+        qlist.setFixedHeight(width)
+    return qlist
+
 
 def make_label(text, wordwrap=True, bold=False, height=None, width=None,
                align=None):

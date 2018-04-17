@@ -90,7 +90,7 @@ except thorlabs_KPZ101.KPZ101OpenError:
 
 from utility import mkdir_p
 from QtConvenience import (make_label, make_HBox, make_VBox,
-                           make_LineEdit, make_button,
+                           make_LineEdit, make_button, make_qListWidget,
                            make_control_group, make_checkbox,
                            CheckboxGatedValue, increment_textbox,
                            zero_textbox, textbox_int, textbox_float,
@@ -147,6 +147,8 @@ class captureFrames(QtGui.QWidget):
 
         self.cameraNum = 0  # to keep track of which camera is in use
 
+        self.saved_buffers = []
+
         #display for image coming from camera
         self.frame = QtGui.QLabel(self)
         self.frame.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignLeft)
@@ -174,6 +176,7 @@ class captureFrames(QtGui.QWidget):
             'Increment dir number', self.next_directory, self, width=150,
             tooltip='switch to the next numbered directory (if using numbered directories). Use this for example when switching to a new object')
 
+        self.save_raw_epix_buffer = make_checkbox("Save raw EPIX Buffer? (Time series save quicker but must be re-saved\n as hdf5 files. See the Filenames tab for more info.)")
         self.timeseries = make_button('Collect and Save\nTime Series',
                                       self.collectTimeSeries, self, QtGui.QKeySequence('f3'), width=200)
         self.timeseries.setStyleSheet("QPushButton:checked {background-color: green} QPushButton:pressed {background-color: green}")
@@ -197,17 +200,7 @@ class captureFrames(QtGui.QWidget):
         self.numOfFrames = make_LineEdit('10', width=75)
 
         self.numOfFrames2 = make_LineEdit('10', width=75)
-        self.interval = make_LineEdit('0.5', width=75)
-
-        self.applybackground = make_button('Apply Background',
-                                           self.select_background, self, width=150)
-        self.applybackground.setCheckable(True)
-        self.applybackground.setStyleSheet("QPushButton:checked {background-color: green} QPushButton:pressed {background-color: green}")
-        self.background_image_filename = make_label("No background applied")
-        self.background_image = None
-        self.divide_background = make_checkbox("Divide\nBackground", callback = self.check_contrast_autoscale)
-        self.get_bkgd_from_file = make_checkbox("Get Background\nFrom File")
-        
+        self.interval = make_LineEdit('0.5', width=75)        
         self.outfiletitle = QtGui.QLabel()
         self.outfiletitle.setText('Your next image will be saved as\n(use filenames tab to change):')
         self.outfiletitle.setFixedHeight(50)
@@ -221,6 +214,8 @@ class captureFrames(QtGui.QWidget):
                 'Save image showing when clicked',
                  make_HBox([self.save, self.increment_dir_num]),
                  1,
+                 self.save_raw_epix_buffer,
+                 1,
                  'Store the requested number of images to the buffer and then save the files to hard disk. \n\nThe frame rate is set in the Photon Focus Remote software.',
                  make_HBox([self.timeseries, self.numOfFrames, 'frames', 1]),
                  1,
@@ -231,9 +226,6 @@ class captureFrames(QtGui.QWidget):
                  1,
                  "Save buffer",
                  make_HBox([self.save_buffer, self.increment_dir_num]),
-                 "Automatically Apply a background image \n(only for display, it still saves the raw images)",
-                 make_HBox([self.applybackground, self.divide_background, self.get_bkgd_from_file]),
-                 self.background_image_filename,
                  self.outfiletitle,
                  self.path]
         
@@ -416,7 +408,12 @@ class captureFrames(QtGui.QWidget):
         self.reset = make_button("Reset to Default values", self.resetSavingOptions, self, height=None, width=None)
 
         self.path_example = make_label("")
-
+        
+        self.epix_buffer_qlist = make_qListWidget(True, height = 100)
+        self.convert_epix_buffer_but = make_button("Convert Selected Epix Buffers", self.convert_selected_epix_buffers, self,
+                                  height=30, width=200)
+        
+                                  
         tab3 = ("Filenames",
                 [make_label(
                     'Select the output format of your images and set up automatically '
@@ -440,7 +437,12 @@ class captureFrames(QtGui.QWidget):
                  make_label("If you save an image with these settings it will be saved as:", height=50, bold=True, align='bottom'),
                  self.path_example,
                  1,
-                 self.reset])
+                 self.reset,
+                 make_label('____________________________________________', height=15, width = 300),
+                 make_label("Convert EPIX buffers to hdf5 files:", height=20, bold=True, align='bottom'),
+                 make_label("Camera will be unusable during conversion.\nAll unconverted buffers are converted when this program is closed.", height=25, align='bottom'),
+                 self.epix_buffer_qlist, self.convert_epix_buffer_but,
+                 make_label("Add buffer to list (for buffers that did not get properly converted): TODO", height=20, align='bottom')])
 
         # TODO: make this function get its values from the defaults we give things
         # self.resetSavingOptions() #should set file name
@@ -655,9 +657,23 @@ class captureFrames(QtGui.QWidget):
         self.movavglabel.setFont("Arial") #monospaced font avoids flickering
         self.movavglabel.setAlignment(QtCore.Qt.AlignBottom | QtCore.Qt.AlignLeft)
         self.nmovavg = make_LineEdit('1', width=30, callback = self.new_mov_avg)    
-        self.applymovavg = make_button('Apply Mov. Avg.', self.new_mov_avg, self, width=150, height = 20)
+        self.applymovavg = make_button('Apply Mov. Avg.', self.new_mov_avg, self, width=100, height = 20)
         self.applymovavg.setCheckable(True)
         self.applymovavg.setStyleSheet("QPushButton:checked {background-color: green} QPushButton:pressed {background-color: green}")   
+
+        #background
+        self.bkgdlabel = QtGui.QLabel()
+        self.bkgdlabel.setText(' | ')
+        self.bkgdlabel.setFont("Arial") #monospaced font avoids flickering
+        self.applybackground = make_button('Apply Background',
+                                           self.select_background, self, width=100, height = 20)
+        self.applybackground.setCheckable(True)
+        self.applybackground.setStyleSheet("QPushButton:checked {background-color: green} QPushButton:pressed {background-color: green}")
+        self.background_image_filename = make_label("No background applied")
+        self.background_image = None
+        self.divide_background = make_checkbox("Divide Bkgd", callback = self.check_contrast_autoscale)
+        self.get_bkgd_from_file = make_checkbox("Get Bkgd From File")
+
 
         self.sphObject = QtGui.QLabel(self)
         self.sphObject.setAlignment(QtCore.Qt.AlignBottom | QtCore.Qt.AlignLeft)
@@ -698,6 +714,12 @@ class captureFrames(QtGui.QWidget):
         contrastbox.addWidget(self.movavglabel)
         contrastbox.addWidget(self.nmovavg)
         contrastbox.addWidget(self.applymovavg)
+        contrastbox.addWidget(self.bkgdlabel)
+        contrastbox.addWidget(self.applybackground) 
+        #contrastbox.addWidget(self.background_image_filename)       
+        contrastbox.addWidget(self.divide_background)
+        contrastbox.addWidget(self.get_bkgd_from_file)
+
         contrastbox.addStretch(1)
         
         textbox = QtGui.QVBoxLayout()
@@ -834,7 +856,8 @@ class captureFrames(QtGui.QWidget):
                 self.freeze.toggle()
                 mkdir_p(self.save_directory())
 
-                write_timeseries(self.filename(), range(1, 1 + textbox_int(self.numOfFrames)), self.metadata, self)
+                write_timeseries(self.filename(), range(1, 1 + textbox_int(self.numOfFrames)),
+                                 self.metadata, self, self.save_raw_epix_buffer.isChecked(), True)
                 if thorcamfs_available and thorlabs_KPZ101_available and self.close_open_stage_but.text() == 'Close\nStage':
                     np.savetxt(self.filename()+'_VOutHistory.txt', self.v_out_history, header = 'z_COM z_voltage(%) z_sum')
                     if self.close_open_xystage_but.text() == 'Close\nStages':
@@ -867,7 +890,7 @@ class captureFrames(QtGui.QWidget):
                 #chonological
                 imagenums.append(i)
 
-            write_timeseries(self.filename(), imagenums, self.metadata, self)
+            write_timeseries(self.filename(), imagenums, self.metadata, self,  self.save_raw_epix_buffer.isChecked(), True)
 
             self.next_directory()
             self.save_buffer.setChecked(False)
@@ -1252,11 +1275,16 @@ class captureFrames(QtGui.QWidget):
         self.camera.close()
         
         if camera_str == "Simulated":
-            self.camera = dummy_image_source.DummyCamera()        
+            self.camera = dummy_image_source.DummyCamera()
+            self.save_raw_epix_buffer.setChecked(False)
+            self.save_raw_epix_buffer.setEnabled(False)        
         elif (camera_str == "PhotonFocus") or (camera_str == "Basler"):
             self.camera = epix_framegrabber.Camera()
+            self.save_raw_epix_buffer.setEnabled(True)
         elif camera_str == "ThorCam FS":
             self.camera = thorcam.Camera()
+            self.save_raw_epix_buffer.setChecked(False)
+            self.save_raw_epix_buffer.setEnabled(False)
         
         self.get_bit_and_roi_choices(camera_str)
 
@@ -1421,7 +1449,8 @@ class captureFrames(QtGui.QWidget):
                     
     def closing_sequence(self):
     #this will run when the main GUI window is closed 
-        self.camera.close()
+    
+        #close stages and focus stabilization camera
         if thorcamfs_available and thorlabs_KPZ101_available:
             if self.close_open_thorcam_fs_but.text() == 'Close\nThorCam FS':
                 self.camera_fs.close()
@@ -1429,7 +1458,45 @@ class captureFrames(QtGui.QWidget):
                 self.z_pstage.close_stage()     
             if self.close_open_xystage_but.text() == 'Close\nStages':
                 self.x_pstage.close_stage()         
-                self.y_pstage.close_stage()         
+                self.y_pstage.close_stage()
+                
+        #convert all saved epix buffers into h5 files.
+        self.epixbuffer_to_h5(self.saved_buffers)
+    
+        #close camera
+        self.camera.close()
+         
+    def epixbuffer_to_h5(self, buffers_to_convert):
+        #convert all saved epix buffers into h5 files.
+        for saved_buffer in buffers_to_convert:
+            self.camera.close()
+            filename = saved_buffer['filename']
+            imageNums = saved_buffer['imageNums']
+            bit_depth = saved_buffer['bit_depth']
+            im_shape = saved_buffer['im_shape']
+            cam_name = saved_buffer['cam_name']
+            remove_after = saved_buffer['remove_after']
+            self.camera.open(bit_depth, im_shape, camera = cam_name) #open camera with same setting as saved buffer
+            self.camera.load_buffer(filename+'.epixbuffer', [min(imageNums),max(imageNums)] ) # load buffer
+            write_timeseries(filename, imageNums, self.metadata, self, False, False) #convert to hdf5
+            if remove_after:
+                os.remove(filename+'.epixbuffer')
+    
+    def convert_selected_epix_buffers(self):
+        
+        selected_items = self.epix_buffer_qlist.selectedItems() #get selected items
+        indecies_converted = [] #list of items that have been converted
+        for item in selected_items: 
+            selected_file = item.text()
+            selected_row = self.epix_buffer_qlist.row(item)
+            for kk in range(len(self.saved_buffers)): #find the item in self.saved_buffers
+                if self.saved_buffers[kk]['filename'] == selected_file:
+                    self.epixbuffer_to_h5([ self.saved_buffers[kk] ]) #convert this file
+                    self.epix_buffer_qlist.takeItem(selected_row) # remove item from qlist
+                    indecies_converted.append(kk)
+        for kk in indecies_converted: #remove items from saved_buffers
+            del self.saved_buffers[kk]
+        self.live()
             
     def close_open_stage(self):
         self.lock_pos_box.setChecked(False)
@@ -1849,7 +1916,8 @@ class captureFrames(QtGui.QWidget):
         v_out_new = textbox_float(self.y_v_out) + textbox_float(self.xy_v_step)
         self.y_v_out.setText(str( round(v_out_new, 3) ))
         self.change_y_output_voltage()
-    
+
+      
 def spot_fit(im, diameter, dark_spot = False, x_g = None, y_g=None, x_tol = 1.0, y_tol = 1.0):
     '''Uses trackpy to find spots with specified diameter.
     Set dark-spot true if the spot to track is darker than the background
@@ -1902,22 +1970,41 @@ def combobox_enable_allbutone(combobox, exception, enable):
         if combobox.itemText(ii) != exception:
             combobox.model().item(ii).setEnabled(enable)    
             
-def write_timeseries(filename, imageNums, metadata=None, self=None):
-    #write_single "thumbmail" image for the first frame
-    write_image(filename+'.tif',self.camera.get_image(imageNums[0]), metadata=metadata)
-    print 'saving time series'
+def write_timeseries(filename, imageNums, metadata=None, self=None, save_epixbuffer = False, save_image = True):
+    '''if not save_epixbuffer the camera buffer is saved into an hdf5 file
+       if save_epixbuffer the raw camera buffer is  writted directly to disk'''
 
-    uncompressed_name = filename+'.uncompressed.h5'
-    f = h5py.File(uncompressed_name,'w')
-    j = 0
-    for i in imageNums:
-        store_image(f,str(j),i,self)
-        #print 'saving image: '+ str(i)
-        j += 1
-    f.close()
-
-    p = Process(target=compress_h5, args=(uncompressed_name, True))
-    p.start()
+    
+    if save_image:
+        #write_single "thumbmail" image for the first frame
+        write_image(filename+'.tif',self.camera.get_image(imageNums[0]), metadata=metadata)    
+    
+    time_start_save = time.time()    
+    if save_epixbuffer:
+        #save raw buffer to disk
+        print('saving raw buffer '+filename)
+        buffer_name = filename+'.epixbuffer' 
+        self.camera.save_buffer(buffer_name, [min(imageNums),max(imageNums)] ) #save buffer to disk
+        saved_buffer_dict = {'filename':filename, 'imageNums':imageNums,
+                             'bit_depth':self.bit_depth, 'im_shape':self.roi_shape,
+                             'cam_name':self.camera_choice.currentText(), 'remove_after':True}
+        self.saved_buffers.append(saved_buffer_dict)
+        self.epix_buffer_qlist.addItem(filename)
+        print('epix_buffer save time',time.time()-time_start_save)
+    else:
+        #save buffer as hdf5 file.
+        print('saving time series '+filename)    
+        uncompressed_name = filename+'.uncompressed.h5'
+        f = h5py.File(uncompressed_name,'w')
+        j = 0
+        for i in imageNums:
+            store_image(f,str(j),i,self)
+            #print 'saving image: '+ str(i)
+            j += 1
+        f.close()
+        print('HDF5 save time',time.time()-time_start_save)
+        p = Process(target=compress_h5, args=(uncompressed_name, True))
+        p.start()
 
     #TODO: metadata
 
@@ -1946,4 +2033,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-    

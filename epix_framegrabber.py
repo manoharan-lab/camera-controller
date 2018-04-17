@@ -80,7 +80,7 @@ class Camera(object):
             i = self.epix.pxd_PIXCIclose("","NTSC","") # standard NTSC #-25
             if i == 0:
                 print("Frame grabber closed successfully.")
-                self.open = True
+                #self.open = True
             elif i == -25:
                 print("Failed to close the frame grabber because it wasn't open.")
             else:
@@ -100,10 +100,11 @@ class Camera(object):
         # there some subtle way that will lead us astray?
         xdim = self.epix.pxd_imageXdim()
         ydim = self.epix.pxd_imageYdim()
-
+        bit_depth = self.epix.pxd_imageBdim()        
+        
         imagesize = xdim*ydim
 
-        if self.bit_depth > 8:
+        if bit_depth > 8:
             c_type = c_ushort
             cam_read = self.epix.pxd_readushort
         else:
@@ -116,14 +117,24 @@ class Camera(object):
                            c_buf_size, "Gray")
 
         im = np.frombuffer(c_buf, c_type).reshape([xdim, ydim])
-        if self.bit_depth > 8:
+        if bit_depth > 8:
             # We have to return a 16 bit image, use the upper bits so that
             # outputs look nicer (max pixel intensity will be interpreted as
             # white by image viewers). i.e. linearly rescale pixel values to
             # a 16 bit scale : 0 to 65535. Note 65535 = (2**16 - 1).
-            im = im * 2**(16-self.bit_depth)
+            im = im * 2**(16-bit_depth)
 
         return im
+
+    def save_buffer(self, filename, frames):
+        buffer_save = self.epix.pxd_saveRawBuffers
+        buffer_save(0x1, filename, frames[0], frames[1], 0, 0, 0, 0)
+        return
+        
+    def load_buffer(self, filename, frames):
+        buffer_load = self.epix.pxd_loadRawBuffers
+        buffer_load(0x1, filename, frames[0], frames[1], 0, 0, 0, 0)
+        return
 
     def get_frame_number(self):
         return self.epix.pxd_capturedBuffer(0x1,1)-1
@@ -140,9 +151,12 @@ class Camera(object):
         # the buffer, so it probably will not work if we want a rolling buffer
         # tgd 2014-06-16
         # you can get the same effect by changing 1000000 to 0
+        # amg 2018-05-17. The 1000000 limits the total number of frames
+        #                 Using 0 does not limit the total number of frames
         #self.epix.pxd_goLive(0x1,1)
-        self.epix.pxd_goLiveSeq(0x1,1,buffersize,1,1000000,1)
-
+        #self.epix.pxd_goLiveSeq(0x1,1,buffersize,1,1000000,1)
+        self.epix.pxd_goLiveSeq(0x1,1,buffersize,1,0,1)
+        
     def start_sequence_capture(self, n_frames):
         print 'sequence capture started'
         self.epix.pxd_goLiveSeq(0x1,1,n_frames,1,n_frames,1)
