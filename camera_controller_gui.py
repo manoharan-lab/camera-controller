@@ -147,8 +147,6 @@ class captureFrames(QtGui.QWidget):
 
         self.cameraNum = 0  # to keep track of which camera is in use
 
-        self.saved_buffers = []
-
         #display for image coming from camera
         self.frame = QtGui.QLabel(self)
         self.frame.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignLeft)
@@ -412,6 +410,11 @@ class captureFrames(QtGui.QWidget):
         self.epix_buffer_qlist = make_qListWidget(True, height = 100)
         self.convert_epix_buffer_but = make_button("Convert Selected Epix Buffers", self.convert_selected_epix_buffers, self,
                                   height=30, width=200)
+        self.remove_epix_buffer_but = make_button("Remove Selected Buffers", self.remove_selected_epix_buffers, self,
+                                  height=20, width=150)
+        self.add_epixbuffer_but = make_button("Add Buffer", self.add_epixbuffer, self, height=None, width=70)
+        self.browse_epixbuffer = make_button("Browse", self.select_epixbuffer, self, height=None, width=50)
+        self.epixbuffer_path = make_LineEdit(self.root_save_path.text())
         
                                   
         tab3 = ("Filenames",
@@ -440,9 +443,11 @@ class captureFrames(QtGui.QWidget):
                  self.reset,
                  make_label('____________________________________________', height=15, width = 300),
                  make_label("Convert EPIX buffers to hdf5 files:", height=20, bold=True, align='bottom'),
-                 make_label("Camera will be unusable during conversion.\nAll unconverted buffers are converted when this program is closed.", height=25, align='bottom'),
-                 self.epix_buffer_qlist, self.convert_epix_buffer_but,
-                 make_label("Add buffer to list (for buffers that did not get properly converted): TODO", height=20, align='bottom')])
+                 make_label("Camera will be unusable during conversion.\nAll unconverted buffers in this list are converted when this program is closed.", height=25, align='bottom'),
+                 self.epix_buffer_qlist, 
+                 make_HBox([self.convert_epix_buffer_but,self.remove_epix_buffer_but]),
+                 make_label("Add buffer to list (for buffers that did not get properly converted):", height=20, align='bottom'),
+                 make_HBox([self.add_epixbuffer_but,self.epixbuffer_path,self.browse_epixbuffer])])
 
         # TODO: make this function get its values from the defaults we give things
         # self.resetSavingOptions() #should set file name
@@ -1460,43 +1465,81 @@ class captureFrames(QtGui.QWidget):
                 self.x_pstage.close_stage()         
                 self.y_pstage.close_stage()
                 
-        #convert all saved epix buffers into h5 files.
-        self.epixbuffer_to_h5(self.saved_buffers)
+        #convert all remaining saved epix buffers into hdf5 files.
+        items_to_convert = []
+        for kk in range(self.epix_buffer_qlist.count()):
+             items_to_convert.append(self.epix_buffer_qlist.item(kk))
+        self.epixbuffer_to_h5(items_to_convert)
     
         #close camera
         self.camera.close()
          
-    def epixbuffer_to_h5(self, buffers_to_convert):
-        #convert all saved epix buffers into h5 files.
-        for saved_buffer in buffers_to_convert:
+    def epixbuffer_to_h5(self, items_to_convert):
+        #convert saved epix buffers into h5 files.
+        if not isinstance(items_to_convert,list):
+            items_to_convert = [items_to_convert]
+            
+        for item in items_to_convert:
             self.camera.close()
-            filename = saved_buffer['filename']
-            imageNums = saved_buffer['imageNums']
-            bit_depth = saved_buffer['bit_depth']
-            im_shape = saved_buffer['im_shape']
-            cam_name = saved_buffer['cam_name']
-            remove_after = saved_buffer['remove_after']
+            filename = item.text()
+            item_row = self.epix_buffer_qlist.row(item)
+            
+            #load parameters of buffer
+            saved_buffer_dict = json.load(open(filename+'epixbuffer.txt'))
+            imageNums = saved_buffer_dict['imageNums']
+            bit_depth = saved_buffer_dict['bit_depth']
+            im_shape = saved_buffer_dict['im_shape']
+            cam_name = saved_buffer_dict['cam_name']
+            remove_after = saved_buffer_dict['remove_after']
+            
             self.camera.open(bit_depth, im_shape, camera = cam_name) #open camera with same setting as saved buffer
             self.camera.load_buffer(filename+'.epixbuffer', [min(imageNums),max(imageNums)] ) # load buffer
             write_timeseries(filename, imageNums, self.metadata, self, False, False) #convert to hdf5
+            self.epix_buffer_qlist.takeItem(item_row) #remove item from qlist
             if remove_after:
                 os.remove(filename+'.epixbuffer')
+                os.remove(filename+'epixbuffer.txt')
     
-    def convert_selected_epix_buffers(self):
-        
+    def remove_selected_epix_buffers(self):
         selected_items = self.epix_buffer_qlist.selectedItems() #get selected items
-        indecies_converted = [] #list of items that have been converted
-        for item in selected_items: 
-            selected_file = item.text()
-            selected_row = self.epix_buffer_qlist.row(item)
-            for kk in range(len(self.saved_buffers)): #find the item in self.saved_buffers
-                if self.saved_buffers[kk]['filename'] == selected_file:
-                    self.epixbuffer_to_h5([ self.saved_buffers[kk] ]) #convert this file
-                    self.epix_buffer_qlist.takeItem(selected_row) # remove item from qlist
-                    indecies_converted.append(kk)
-        for kk in indecies_converted: #remove items from saved_buffers
-            del self.saved_buffers[kk]
+        for item in selected_items:
+            item_row = self.epix_buffer_qlist.row(item)
+            self.epix_buffer_qlist.takeItem(item_row)    
+        
+    def convert_selected_epix_buffers(self):
+        selected_items = self.epix_buffer_qlist.selectedItems() #get selected items
+        self.epixbuffer_to_h5(selected_items)
         self.live()
+    
+    def add_epixbuffer(self):
+        '''Adds a filename to the qlist'''
+        filename = self.epixbuffer_path.text()
+        if os.path.isfile(filename+'.epixbuffer') and os.path.isfile(filename+'epixbuffer.txt'): #make sure files exist
+            #get list of files in qlist
+            filenames_in_qlist = []
+            for kk in range(self.epix_buffer_qlist.count()):
+                filenames_in_qlist.append( self.epix_buffer_qlist.item(kk).text() )
+                
+            if filename not in filenames_in_qlist:#make sure filename isn't already in the qlist
+                self.epix_buffer_qlist.addItem(filename) #add item to qlist
+            else:
+                print('File already in list')
+        else: print('Epix buffer or buffer params file not found')
+    
+    def select_epixbuffer(self):           
+        status = 'stay frozen'
+        if self.livebutton.isChecked(): #pause live feed
+            self.freeze.setChecked(True)
+            self.live()
+            status = 'return to live'
+
+        filename = QtGui.QFileDialog.getOpenFileName(self, "Choose an epixbuffer", self.root_save_path.text(), "*.epixbuffer")[0]
+        filename = filename.replace('/','\\')
+        self.epixbuffer_path.setText(filename.split('.')[0])
+
+        if status == 'return to live':
+            self.livebutton.setChecked(True)
+            self.live()
             
     def close_open_stage(self):
         self.lock_pos_box.setChecked(False)
@@ -1972,9 +2015,8 @@ def combobox_enable_allbutone(combobox, exception, enable):
             
 def write_timeseries(filename, imageNums, metadata=None, self=None, save_epixbuffer = False, save_image = True):
     '''if not save_epixbuffer the camera buffer is saved into an hdf5 file
-       if save_epixbuffer the raw camera buffer is  writted directly to disk'''
+       if save_epixbuffer the raw camera buffer is writted directly to disk'''
 
-    
     if save_image:
         #write_single "thumbmail" image for the first frame
         write_image(filename+'.tif',self.camera.get_image(imageNums[0]), metadata=metadata)    
@@ -1982,14 +2024,13 @@ def write_timeseries(filename, imageNums, metadata=None, self=None, save_epixbuf
     time_start_save = time.time()    
     if save_epixbuffer:
         #save raw buffer to disk
-        print('saving raw buffer '+filename)
-        buffer_name = filename+'.epixbuffer' 
-        self.camera.save_buffer(buffer_name, [min(imageNums),max(imageNums)] ) #save buffer to disk
-        saved_buffer_dict = {'filename':filename, 'imageNums':imageNums,
-                             'bit_depth':self.bit_depth, 'im_shape':self.roi_shape,
-                             'cam_name':self.camera_choice.currentText(), 'remove_after':True}
-        self.saved_buffers.append(saved_buffer_dict)
-        self.epix_buffer_qlist.addItem(filename)
+        print('saving raw buffer '+filename) 
+        saved_buffer_dict = {'imageNums':imageNums, #dictionary of parameters needed to reload buffer
+                             'bit_depth':self.bit_depth, 'im_shape':self.roi_shape, 'remove_after':True,
+                             'cam_name':self.camera_choice.currentText()}
+        self.epix_buffer_qlist.addItem(filename) #add item to qlist
+        json.dump(saved_buffer_dict, open(filename+'epixbuffer.txt','w')) #save dictionary
+        self.camera.save_buffer(filename+'.epixbuffer', [min(imageNums),max(imageNums)] ) #save buffer to disk
         print('epix_buffer save time',time.time()-time_start_save)
     else:
         #save buffer as hdf5 file.
