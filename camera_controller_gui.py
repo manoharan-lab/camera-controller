@@ -1507,8 +1507,17 @@ class captureFrames(QtGui.QWidget):
             self.epix_buffer_qlist.takeItem(item_row)    
         
     def convert_selected_epix_buffers(self):
+        #store current camera settings
+        old_bit_depth = self.bit_depth
+        old_roi_shape =  self.roi_shape
+        old_camera_name = self.camera_choice.currentText()
+    
         selected_items = self.epix_buffer_qlist.selectedItems() #get selected items
-        self.epixbuffer_to_h5(selected_items)
+        self.epixbuffer_to_h5(selected_items) #convert buffers
+        
+        #reopen camera with previous parameters
+        self.camera.close()
+        self.camera.open(old_bit_depth, old_roi_shape, camera = old_camera_name)
         self.live()
     
     def add_epixbuffer(self):
