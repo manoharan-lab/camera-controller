@@ -48,7 +48,7 @@ class KPZ101(object):
             dm = windll.LoadLibrary(piezo_dm_file)
             self.piezo = windll.LoadLibrary(piezo_file)
         else:
-            print("Thorlabs KPZ101 drivers not available.")
+            raise KPZ101OpenError("Thorlabs KPZ101 drivers not available.")
 
     def open_stage(self, serialNo, poll_time = 10, v_out = 0.0, v_step = 5.0 ):
         #poll_time for device is in ms      
