@@ -174,7 +174,7 @@ class captureFrames(QtGui.QWidget):
             'Increment dir number', self.next_directory, self, width=150,
             tooltip='switch to the next numbered directory (if using numbered directories). Use this for example when switching to a new object')
 
-        self.save_raw_epix_buffer = make_checkbox("Save raw EPIX Buffer? (Time series save quicker but must be re-saved\n as hdf5 files. See the Filenames tab for more info.)")
+        self.save_raw_epix_buffer = make_checkbox("Save raw EPIX Buffer? (Large time series (<~1 GB) save quicker but must be\nre-saved as hdf5 files. See the Filenames tab for more info.)")
         self.timeseries = make_button('Collect and Save\nTime Series',
                                       self.collectTimeSeries, self, QtGui.QKeySequence('f3'), width=200)
         self.timeseries.setStyleSheet("QPushButton:checked {background-color: green} QPushButton:pressed {background-color: green}")
@@ -863,19 +863,16 @@ class captureFrames(QtGui.QWidget):
 
                 write_timeseries(self.filename(), range(1, 1 + textbox_int(self.numOfFrames)),
                                  self.metadata, self, self.save_raw_epix_buffer.isChecked(), True)
+
                 if thorcamfs_available and thorlabs_KPZ101_available and self.close_open_stage_but.text() == 'Close\nStage':
                     np.savetxt(self.filename()+'_VOutHistory.txt', self.v_out_history, header = 'z_COM z_voltage(%) z_sum')
                     if self.close_open_xystage_but.text() == 'Close\nStages':
                         np.savetxt(self.filename()+'_VOutXYHistory.txt', self.v_out_xyhistory, header = 'x_fit(px) y_fit(px) x_voltage(%) y_voltage(%)')                    
-                    '''if self.lock_pos_box.isChecked():
-                        #Stop Stage feedback loop since saving the data can take a long time and stage position is not updated during saving.
-                        self.lock_pos_box.setChecked(False)
-                        self.set_lock_pos()'''
-
 
                 increment_textbox(self.include_incrementing_image_num)
                 self.next_directory()
                 self.timeseries.setChecked(False)
+                self.revise_camera_settings() #prevents odd bug where raw buffers with 1488-1532 frames won't save to disk
                 self.livebutton.setChecked(True)
                 self.live()
 
@@ -899,6 +896,7 @@ class captureFrames(QtGui.QWidget):
 
             self.next_directory()
             self.save_buffer.setChecked(False)
+            self.revise_camera_settings() #prevents odd bug where raw buffers with 1488-1532 frames won't save to disk
             self.livebutton.setChecked(True)
             self.live()
         
@@ -1481,7 +1479,7 @@ class captureFrames(QtGui.QWidget):
             
         for item in items_to_convert:
             self.camera.close()
-            filename = item.text()
+            filename = item.text().encode('ascii') #IMPORTANT! must convert to byte encoded string!
             item_row = self.epix_buffer_qlist.row(item)
             
             #load parameters of buffer
@@ -1527,7 +1525,7 @@ class captureFrames(QtGui.QWidget):
             #get list of files in qlist
             filenames_in_qlist = []
             for kk in range(self.epix_buffer_qlist.count()):
-                filenames_in_qlist.append( self.epix_buffer_qlist.item(kk).text() )
+                filenames_in_qlist.append( self.epix_buffer_qlist.item(kk).text().encode('ascii') )  #IMPORTANT! must convert to byte encoded string!
                 
             if filename not in filenames_in_qlist:#make sure filename isn't already in the qlist
                 self.epix_buffer_qlist.addItem(filename) #add item to qlist
