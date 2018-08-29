@@ -66,6 +66,7 @@ import thorlabs_KPZ101
 from compress_h5 import compress_h5
 from glob import glob
 import fourier_filter as ff
+import win32api
 
 try:
     import trackpy as tp
@@ -95,6 +96,14 @@ from QtConvenience import (make_label, make_HBox, make_VBox,
                            CheckboxGatedValue, increment_textbox,
                            zero_textbox, textbox_int, textbox_float,
                            make_combobox, make_tabs)
+
+#set default save path
+default_save_path = os.path.join("C:\\", "Users", "manoharanlab", "data", "YourName")
+
+#for iSCAT computer in the basement lab, set the default path to the SSD
+if os.path.exists(os.path.join("V:\\", "data")):
+    if win32api.GetVolumeInformation('V:\\')[0] == 'DataSSD':
+        default_save_path = os.path.join("V:\\", "data", "YourName")        
 
 
 #TODO: construct format file outside of the image grabbing loop, only
@@ -388,7 +397,7 @@ class captureFrames(QtGui.QWidget):
         self.browse = make_button("Browse", self.select_directory, self,
                                   height=30, width=100)
         self.root_save_path = make_LineEdit(
-            os.path.join("C:\\", "Users",     "manoharanlab", "data", "YourName"),
+            os.path.join(default_save_path),
                                             self.update_filename)
         self.include_dated_subdir = CheckboxGatedValue(
             "Use a dated subdirectory", lambda : time.strftime("%Y-%m-%d"),
@@ -1144,8 +1153,7 @@ class captureFrames(QtGui.QWidget):
         #self.root_save_path.setText("/Home/Desktop/camera")
 
         #superscope default:
-        self.root_save_path.setText(os.path.join("C:", "Users", "manoharanlab",
-                                                 "data", "YourName"))
+        self.root_save_path.setText(default_save_path)
 
     def revise_camera_settings(self):
         camera_str =  self.camera_choice.currentText()
