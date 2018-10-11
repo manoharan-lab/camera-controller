@@ -1442,6 +1442,7 @@ class captureFrames(QtGui.QWidget):
             #setup bit-depth combo box 
             camera_bitdepth_str = str(new_cam.bit_depth) + " bit"
             self.bitdepth_choice.setCurrentIndex( self.bitdepth_choice.findText(camera_bitdepth_str) )
+            self.bit_depth = new_cam.bit_depth
             
             #setup ROI size combo box
             camera_ROIchoice_str = str(new_cam.roi_shape[0]) + " x " + str(new_cam.roi_shape[0])
@@ -2041,7 +2042,7 @@ def write_timeseries(filename, imageNums, metadata=None, self=None, save_epixbuf
         #save raw buffer to disk
         print('saving raw buffer '+filename) 
         saved_buffer_dict = {'imageNums':imageNums, #dictionary of parameters needed to reload buffer
-                             'bit_depth':self.bit_depth, 'im_shape':self.roi_shape, 'remove_after':True,
+                             'bit_depth':self.bit_depth, 'im_shape':self.roi_shape, 'remove_after':False,
                              'cam_name':self.camera_choice.currentText()}
         self.epix_buffer_qlist.addItem(filename) #add item to qlist
         json.dump(saved_buffer_dict, open(filename+'epixbuffer.txt','w')) #save dictionary
